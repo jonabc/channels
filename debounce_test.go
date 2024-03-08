@@ -78,33 +78,37 @@ func TestDebounceKeyed(t *testing.T) {
 	outc := channels.DebounceCustom(inc)
 	require.Equal(t, cap(inc), cap(outc))
 
+	start := time.Now()
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		inc <- &customDebouncingType{key: "1", value: "val1", delay: delay}
 		inc <- &customDebouncingType{key: "1", value: "val2", delay: 1 * time.Millisecond}
+		time.Sleep(2 * time.Millisecond)
+
 		inc <- &customDebouncingType{key: "2", value: "val1", delay: delay}
 		inc <- &customDebouncingType{key: "2", value: "val2", delay: 1 * time.Millisecond}
 		inc <- &customDebouncingType{key: "1", value: "val3", delay: 2 * time.Millisecond}
 		wg.Wait()
 	}()
 
-	start := time.Now()
-	for time.Since(start) < 5*time.Millisecond {
-		require.Len(t, outc, 0)
-		time.Sleep(1 * time.Millisecond)
-	}
-
-	require.Len(t, outc, 2)
+	require.Len(t, outc, 0)
 
 	results := make([]*customDebouncingType, 0)
 	results = append(results, <-outc)
-	results = append(results, <-outc)
+
 	// only the delay for the first element seen on any key counts
+	require.ElementsMatch(t, results, []*customDebouncingType{
+		{key: "1", value: "val1,val2,val3", delay: delay},
+	})
+	require.GreaterOrEqual(t, time.Since(start), delay)
+
+	results = append(results, <-outc)
+
 	require.ElementsMatch(t, results, []*customDebouncingType{
 		{key: "1", value: "val1,val2,val3", delay: delay},
 		{key: "2", value: "val1,val2", delay: delay},
 	})
-	require.Len(t, outc, 0)
-	wg.Done()
+	require.GreaterOrEqual(t, time.Since(start), delay+(2*time.Millisecond))
 }
