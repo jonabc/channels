@@ -85,3 +85,15 @@ func TestBatchDrainsItemsOnInputChannelClose(t *testing.T) {
 	require.Len(t, out, 1)
 	require.Equal(t, <-out, []int{1})
 }
+
+func TestDoesNotDrainEmptyBatchOnChannelClose(t *testing.T) {
+	in := make(chan int, 100)
+
+	batchSize := 2
+	out := channels.Batch(in, batchSize, 0)
+
+	close(in)
+	time.Sleep(1 * time.Millisecond)
+
+	require.Len(t, out, 0)
+}
