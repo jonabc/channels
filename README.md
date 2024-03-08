@@ -1,1 +1,426 @@
-# channels
+# Channels
+
+Some utilities for working with channels.
+
+## Batch
+
+```go
+// signature
+func Batch[T any](inc <-chan T, batchSize int) <- chan T
+
+// usage
+inc := make(chan int)
+outc := Batch(inc, 2)
+
+inc <- 1
+inc <- 2
+close(inc)
+
+results := <- outc
+// results == []int{1,2}
+```
+
+Batch N values from the input channel into an array of N values in the output channel.  The output channel will have capacity $`cap(input channel) / batchSize`$.  The output channel is closed once the input channel is closed and a partial batch is sent to the output channel, if a partial batch exists.
+
+## BatchValues (Blocking)
+
+```go
+// signature
+func BatchValues[T any](inc <-chan T, batchSize int) [][]T
+
+// usage
+inc := make(chan int, 4)
+inc <- 1
+inc <- 2
+inc <- 3
+inc <- 4
+close(inc)
+
+results := BatchValues(inc, 2)
+// results == [][]int{{1,2}, {3,4}}
+```
+
+Like Batch, but blocks until the input channel is closed and all values are read.  BatchValue reads all values from the input channel and returns an array of batches.
+
+## Debounce
+
+```go
+// signature
+func Debounce[T comparable](inc <-chan T, delay time.Duration) <- chan T
+
+// usage
+inc := make(chan int)
+defer close(inc)
+
+delay := 5 * time.Second
+outc := Debounce(inc, delay)
+
+inc <- 1
+time.Sleep(1 * time.Second)
+
+inc <- 1
+inc <- 2
+
+// will block for approx `delay - 1s` time period
+results := <- outc
+
+// will block for approx 1 second
+results += <- outc
+// results == 3, len(outc) == 0
+```
+
+Debounce reads values from the input channel and pushes them to the returned output channel after a delay.  If a value is read from the input channel multiple times during the debounce period it will only be pushed to the output channel once, after a `delay` started from when the first of the value multiple values is read.
+
+The channel returned by Debounce has the same capacity as the input channel.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
+
+For more complicated use cases, see [DebounceCustom](./#debouncecustom) below
+
+## DebounceCustom
+
+```go
+// signature
+type Keyable[K comparable] interface {
+	Key() K
+}
+
+type DebounceInput[K comparable, T Keyable[K]] interface {
+	Keyable[K]
+	Delay() time.Duration
+	Reduce(T) T
+}
+
+func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) <- chan T
+
+// usage
+type myType struct {
+	key   string
+	value int
+	delay time.Duration
+}
+
+func (d *myType) Key() string {
+	return d.key
+}
+
+func (d *myType) Delay() time.Duration {
+	return d.delay
+}
+
+func (d *myType) Reduce(other *myType) *myType {
+	d.value += other.value
+	return d
+}
+
+inc := make(chan *myType)
+defer close(inc)
+
+delay := 5 * time.Second
+outc := DebounceCustom(inc)
+
+inc <- &myType{key:"1", val: 1, delay: delay}
+
+time.Sleep(1 * time.Second)
+inc <- &myType{key:"2", val: 2, delay: delay}
+inc <- &myType{key:"1", val: 3, delay: 1 * time.Millisecond}
+
+// will block for approx `delay - 1s` time period
+result := <- outc
+// result == &myType{key:"1", val: 4, delay: delay}
+
+result = <- outc
+// result == &myType{key:"2", val: 2, delay: delay}
+```
+
+DebounceCustom is like Debounce but with per-item configurability over comparisons, delays, and reducing multiple values to a single debounced value.  Where Debounce requires `comparable` values in the input channel, DebounceCustom requires types that implement the `DebounceInput[K comparable, T Keyable[K]]` interface.  The typing is a little complex but in practice most of the complexity is hidden from callers.  Values of type `T` passsed into DebounceCustom must implement:
+1. `Key() K` returns a `comparable` value
+   - The key is used to compare values read from the input channel for uniqueness.  If multiple values with the same key are seen, they will be reduced into a single value.
+2. `Delay() time.Duration` returns the debounce delay period for the value
+   - This function is only called for the first value debounced for each unique key, i.e. if a value is read from the input channel with the same `Key()` as an existing delayed value, the delay from the previously seen value is maintained
+3. `Reduce(T) T` combines the value with another value.  As duplicate values are seen (as determined by comparisons of `Key()`), they will be continuously reduced to a single value which will be returned after the debounce period for that value has elapsed.
+
+The channel returned by DebounceCustom has the same capacity as the input channel.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
+
+## Map
+
+```go
+// signature
+func Map[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) TOut) <- chan TOut
+
+// usage
+inc := make(chan int)
+// map integers to a boolean indicating if the values are odd (false) or even (true)
+outc := Map(inc, func(i int) bool { return i%2 == 0 })
+
+inc <- 1
+inc <- 2
+close(inc)
+
+results := []int{}
+for result := range outc {
+  result = append(results, result)
+}
+// results == []bool{false, true}
+```
+
+Map reads values from the input channel and applies the provided `mapFn` to each value before pushing it to the output channel.  The output channel will have the same capacity as the input channel.  The output channel is closed once the input channel is closed and all mapped values pushed to the output channel.  The type of the output channel does not need to match the type of the input channel.
+
+## MapValues (Blocking)
+
+```go
+// signature
+func MapValues[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) TOut) []TOut
+
+// usage
+inc := make(chan int)
+
+inc <- 1
+inc <- 2
+close(inc)
+
+// map integers to a boolean indicating if the values are odd (false) or even (true)
+results := Map(inc, func(i int) bool { return i%2 == 0 })
+// results == []bool{false, true}
+```
+
+Like Map, but blocks until the input channel is closed and all values are read.  MapsValues reads all values from the input channel and returns an array of values returned from passing each input value into `mapFn`.
+
+## Merge
+
+```go
+// signature
+func Merge[T any](chans ...<-chan T) <-chan T
+
+// usage
+
+inc1 := make(chan int)
+inc2 := make(chan int)
+inc3 := make(chan int)
+
+outc := Merge(inc1, inc2, inc3)
+
+var wg sync.WaitGroup
+wg.Add(1)
+results := []int{}
+go func() {
+  defer wg.Done()
+  for val := range outc {
+    results = append(results, val)
+  }
+}()
+
+inc1 <- 1
+inc2 <- 2
+inc3 <- 3
+inc1 <- 4
+
+close(inc1)
+close(inc2)
+close(inc3)
+
+wg.Wait()
+// results will have the same elements as []int{1,2,3,4} but may not be in that order
+```
+
+Merge merges multiple input channels into a single output channel.  The order of values in the output channel is not guaranteed to match the order that values are written to the input channels.  The output channel has the same capacity as the input channel and is closed when all input channels are closed.
+
+## Reduce
+
+```go
+// signature
+func Reduce[TIn any, TOut any](inc <-chan T, reduceFn func(TOut, TIn) TOut) <- chan TOut
+
+// usage
+inc := make(chan int)
+// reduce integer values into an array of string values,
+// creating a new array on every iteration.  see below for
+// the difference if `return append(...)` is used instead
+outc := Reduce(inc, func(accum []string, i int) string { 
+  output := make([]string, len(accum) + 1)
+  copy(output, current)
+  output[len(output)-1] = strconv.Itoa(i)
+  
+  return output
+})
+
+inc <- 1
+inc <- 2
+close(inc)
+
+results := []int{}
+for result := range outc {
+  result = append(results, result)
+}
+// results == [][]string{{"1"}, {"1", "2"}}
+
+// NOTE:
+// If the reducer returned `append(accum, strconv.Itoa(i))`,
+// the same array would be pushed to the output channel multiple times
+// and the result will be [][]string{{"1", "2"}, {"1", "2"}}
+```
+
+Reduce reads values from the input channel and applies the provided `reduceFn` to each value.  The first argument to the reducer function is the accumulated reduced value, which is either (a) the default value for the type on the first call or (b) the output from the previous call of the reducer function for all other iterations.
+
+The output of each call to the reducer function is pushed to the output channel.
+
+## ReduceValues (Blocking)
+
+```go
+// signature
+func ReduceValues[TIn any, TOut any](inc <-chan T, reduceFn func(TOut, TIn) TOut) TOut
+
+// usage
+inc := make(chan int, 2)
+inc <- 1
+inc <- 2
+close(inc)
+
+// reduce integers to an array of strings
+results := ReduceValues(inc, func(accum []string, i int) bool { return append(accum, strconv.Itoa(i)) })
+// results == []{"1", "2"}
+```
+
+Like Reduce, but blocks until the input channel is closed and all values are read.  ReduceValues reads all values from the input channel and returns the value returned after all values from the input channel have been passed into `reduceFn`.
+
+## Reject
+
+```go
+// signature
+func Reject[T any](inc <-chan T, rejectFn func(T) bool) <- chan T
+
+// usage
+inc := make(chan int)
+// reject even numbers
+outc := Reject(inc, func(i int) bool { return i%2 == 0 })
+
+inc <- 1
+inc <- 2
+close(inc)
+
+results := []int{}
+for result := range outc {
+  result = append(results, result)
+}
+// results == []int{1}
+```
+
+Selects values from the input channel that return false from the provided `rejectFn` and pushes them to the output channel.  The output channel will have the same capacity as the input channel.  The output channel is closed once the input channel is closed and all selected values pushed to the output channel.
+
+## RejectValues (Blocking)
+
+```go
+// signature
+func RejectValues[T any](inc <-chan T, rejectFn func(T) bool) []T
+
+// usage
+inc := make(chan int, 4)
+inc <- 1
+inc <- 2
+inc <- 3
+inc <- 4
+close(inc)
+
+result := RejectValues(inc, func(i int) bool { return i%2 == 0 })
+// results == []int{1, 3}
+```
+
+Like Reject, but blocks until the input channel is closed and all values are read.  RejectValues reads all values from the input channel and returns an array of values that return false from the provided `rejectFn` function.
+
+## Select
+
+```go
+// signature
+func Select[T any](inc <-chan T, selectFn func(T) bool) <- chan T
+
+// usage
+inc := make(chan int)
+// select even numbers only
+outc := Select(inc, func(i int) bool { return i%2 == 0 })
+
+inc <- 1
+inc <- 2
+close(inc)
+
+results := []int{}
+for result := range outc {
+  result = append(results, result)
+}
+// results == []int{2}
+```
+
+Selects values from the input channel that return true from the provided `selectFn` and pushes them to the output channel.  The output channel will have the same capacity as the input channel.  The output channel is closed once the input channel is closed and all selected values pushed to the output channel.
+
+
+## SelectValues (Blocking)
+
+```go
+// signature
+func SelectValues[T any](inc <-chan T, selectFn func(T) bool) []T
+
+// usage
+inc := make(chan int, 4)
+inc <- 1
+inc <- 2
+inc <- 3
+inc <- 4
+close(inc)
+
+result := SelectValues(inc, func(i int) bool { return i%2 == 0 })
+// results == []int{2, 4}
+```
+
+Like Select, but blocks until the input channel is closed and all values are read.  SelectValues reads all values from the input channel and returns an array values that return true from the provided `selectFn` function.
+
+## Split
+
+```go
+// signature
+func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T)) []<-chan T
+
+// usage
+inc := make(chan int, 4)
+// split incoming values into separate chanenls for even and odd values
+outChans := channels.Splt(inc, 2, func(i int, chans []chan<- int) {
+  chans[i%2] <- i
+})
+
+inc <- 1
+inc <- 2
+inc <- 3
+inc <- 4
+
+odds := []int{}
+for result := range outChans[1] {
+  odds = append(odds, result)
+}
+// odds == []int{1,3}
+
+evens := []int{}
+for result := range outChans[0] {
+  evens = append(evens, result)
+}
+// evens == []int{2,4}
+```
+
+Split reads values from the input channel and routes the values into `N` output channels using the provided `splitFn`.  The channel slice provided to `splitFn` will have the same length and order as the channel slice returned from the function, e.g. in the above example `Split` guarantees that chans[0] will hold even values and chans[1] will hold odd values.
+
+Each output channel will have the same capacity as the input channel and will be closed after the input channel is closed and emptied.
+
+## SplitValues (Blocking)
+
+```go
+// signature
+func SplitValues[T any](inc <-chan T, count int, splitFn func(T, []chan<- T)) [][]T
+
+// usage
+inc := make(chan int, 4)
+inc <- 1
+inc <- 2
+inc <- 3
+inc <- 4
+close(inc)
+
+results := SplitValues(inc, func(i int, chans []chan<- T) { chans[i%2] <- i })
+// results == [][]int{{2, 4}, {1, 3}}
+```
+
+Like Select, but blocks until the input channel is closed and all values are read.  SelectValues reads all values from the input channel and returns an array values that return true from the provided `selectFn` function.
