@@ -20,6 +20,10 @@ func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration) <-chan []
 
 	publishAndReset := func() {
 		timer.Stop()
+		if len(buffer) == 0 {
+			return
+		}
+
 		keys := make([]T, len(buffer))
 		copy(keys, buffer)
 		outc <- keys
@@ -45,10 +49,8 @@ func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration) <-chan []
 				if len(buffer) == cap(buffer) {
 					publishAndReset()
 				}
-				if len(buffer) > 0 {
-					publishAndReset()
-				}
 			case <-timer.C:
+				publishAndReset()
 			}
 		}
 	}()
