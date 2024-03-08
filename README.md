@@ -481,13 +481,13 @@ Like Split, but blocks until the input channel is closed and all values are read
 
 ```go
 // signature
-func Tap[T any](inc <-chan T, tapFn func(T)) <-chan T
+func Tap[T any](inc <-chan T, preFn func(T), postFn func(T)) <-chan T
 
 // usage
 
 inc := make(chan int, 4)
-// log values to stdout as they are seen
-outc := channels.Tap(inc, func(i int) { fmt.Println(i) })
+// log values to stdout after they are written to the output channel
+outc := channels.Tap(inc, nil, func(i int) { fmt.Println(i) })
 
 inc <- 1
 inc <- 2
@@ -500,7 +500,7 @@ for result := range outc {
 // results == []int{1, 2}
 ```
 
-Tap reads values from the input channel and calls the provided `tapFn` with each value before writing the value to the output channel.  The output channel has the same capacity as the input channel, and will be closed after the input channel is closed and drained.
+Tap reads values from the input channel and calls the provided `[pre/post]Fn` functions with each value before and after writing the value to the output channel, respectivel.  The output channel has the same capacity as the input channel, and will be closed after the input channel is closed and drained.
 
 ## WithDone
 
