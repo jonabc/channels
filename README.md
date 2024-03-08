@@ -234,7 +234,7 @@ Like Map, but blocks until the input channel is closed and all values are read. 
 
 ```go
 // signature
-func Merge[T any](chans ...<-chan T) <-chan T
+func Merge[T any](capacity int, chans ...<-chan T) <-chan T
 
 // usage
 
@@ -242,7 +242,7 @@ inc1 := make(chan int)
 inc2 := make(chan int)
 inc3 := make(chan int)
 
-outc := Merge(inc1, inc2, inc3)
+outc := Merge(0, inc1, inc2, inc3)
 
 var wg sync.WaitGroup
 wg.Add(1)
@@ -267,7 +267,7 @@ wg.Wait()
 // results will have the same elements as []int{1,2,3,4} but may not be in that order
 ```
 
-Merge merges multiple input channels into a single output channel.  The order of values in the output channel is not guaranteed to match the order that values are written to the input channels.  The output channel has the same capacity as the input channel and is closed when all input channels are closed.
+Merge merges multiple input channels into a single output channel.  The order of values in the output channel is not guaranteed to match the order that values are written to the input channels.  The output channel has `capacity` capacity and is closed when all input channels are closed.
 
 ## Reduce
 

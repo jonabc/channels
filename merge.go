@@ -9,7 +9,7 @@ import (
 // order that values are written to the input channels.  The output channel
 // has the same capacity as the input channel and is closed when all input
 // channels are closed.
-func Merge[T any](chans ...<-chan T) <-chan T {
+func Merge[T any](capacity int, chans ...<-chan T) <-chan T {
 	switch len(chans) {
 	case 0:
 		return nil
@@ -17,7 +17,7 @@ func Merge[T any](chans ...<-chan T) <-chan T {
 		return chans[0]
 	default:
 		var wg sync.WaitGroup
-		outc := make(chan T)
+		outc := make(chan T, capacity)
 		i := 0
 
 		for len(chans)-i >= 4 {

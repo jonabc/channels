@@ -129,7 +129,7 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) <-chan T 
 
 					// merge the new debounce channel with existing waiters to build a tree of
 					// debouncer notifications that can be handled one at a time.
-					waitAny = Merge(waitAny, debounceChan)
+					waitAny = Merge(0, waitAny, debounceChan)
 				}
 
 				buffer.data[key] = next
