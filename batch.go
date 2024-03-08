@@ -15,19 +15,20 @@ func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration) <-chan []
 	outc := make(chan []T, channelCapacity)
 	buffer := make([]T, 0, batchSize)
 
-	ticker := internalTime.NewTicker(maxDelay)
+	timer := internalTime.NewTimer(maxDelay)
+	timer.Stop()
 
 	publishAndReset := func() {
+		timer.Stop()
 		keys := make([]T, len(buffer))
 		copy(keys, buffer)
 		outc <- keys
 		buffer = buffer[:0]
-		ticker.Reset(maxDelay)
 	}
 
 	go func() {
 		defer close(outc)
-		defer ticker.Stop()
+		defer timer.Stop()
 		for {
 			select {
 			case in, ok := <-inc:
@@ -36,14 +37,18 @@ func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration) <-chan []
 					return
 				}
 
+				if len(buffer) == 0 {
+					timer.Reset(maxDelay)
+				}
+
 				buffer = append(buffer, in)
 				if len(buffer) == cap(buffer) {
 					publishAndReset()
 				}
-			case <-ticker.C:
 				if len(buffer) > 0 {
 					publishAndReset()
 				}
+			case <-timer.C:
 			}
 		}
 	}()
