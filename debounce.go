@@ -41,7 +41,10 @@ func (i *debounceInputComparable[T]) Reduce(*debounceInputComparable[T]) *deboun
 // The channel returned by Debounce has the same capacity as the input channel.
 // When the input channel is closed, any remaining values being delayed/debounced
 // will be flushed to the output channel and the output channel will be closed.
-func Debounce[T comparable](inc <-chan T, delay time.Duration) <-chan T {
+
+// Debounce also returns a function which returns the number of debounced values
+// that are currently being delayed
+func Debounce[T comparable](inc <-chan T, delay time.Duration) (<-chan T, func() int) {
 	outc := make(chan T, cap(inc))
 
 	inBridge := make(chan *debounceInputComparable[T])
@@ -52,7 +55,7 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration) <-chan T {
 		}
 	}()
 
-	outBridge := DebounceCustom[T, *debounceInputComparable[T]](inBridge)
+	outBridge, getDebouncedCount := DebounceCustom[T, *debounceInputComparable[T]](inBridge)
 	go func() {
 		defer close(outc)
 		for out := range outBridge {
@@ -60,7 +63,7 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration) <-chan T {
 		}
 	}()
 
-	return outc
+	return outc, getDebouncedCount
 }
 
 // DebounceCustom is like Debounce but with per-item configurability over
@@ -72,21 +75,26 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration) <-chan T {
 // The channel returned by DebounceCustom has the same capacity as the input channel.
 // When the input channel is closed, any remaining values being delayed/debounced
 // will be flushed to the output channel and the output channel will be closed.
-func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) <-chan T {
+
+// DebounceCustom also returns a function which returns the number of debounced values
+// that are currently being delayed
+func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) (<-chan T, func() int) {
 	outc := make(chan T, cap(inc))
+
+	// the buffer stores a map of key value pairs of
+	// items from the input channel currently being debounced
+	buffer := struct {
+		sync.Mutex
+		data map[K]T
+	}{
+		data: make(map[K]T),
+	}
 
 	go func() {
 		defer close(outc)
 
 		var wg sync.WaitGroup
 		done := make(chan struct{})
-
-		buffer := struct {
-			sync.Mutex
-			data map[K]T
-		}{
-			data: make(map[K]T),
-		}
 
 		var waitAny <-chan K
 
@@ -132,7 +140,10 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) <-chan T 
 					waitAny = Merge(0, waitAny, debounceChan)
 				}
 
+				// lock only on write
+				buffer.Lock()
 				buffer.data[key] = next
+				buffer.Unlock()
 			case completed, ok := <-waitAny:
 				if !ok {
 					waitAny = nil
@@ -141,12 +152,21 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) <-chan T 
 
 				wg.Done()
 				outc <- buffer.data[completed]
+
+				// lock only on write
+				buffer.Lock()
 				delete(buffer.data, completed)
+				buffer.Unlock()
 			}
 		}
 
 		wg.Wait()
 	}()
 
-	return outc
+	return outc, func() int {
+		buffer.Lock()
+		defer buffer.Unlock()
+
+		return len(buffer.data)
+	}
 }
