@@ -501,3 +501,35 @@ for result := range outc {
 ```
 
 Tap reads values from the input channel and calls the provided `tapFn` with each value before writing the value to the output channel.  The output channel has the same capacity as the input channel, and will be closed after the input channel is closed and drained.
+
+## WithDone
+
+```go
+// signature
+WithDone[T any](inc <-chan T) (<-chan T, <-chan struct{})
+
+// usage
+inc := make(int, 2)
+outc, done := channels.WithDone(inc)
+
+go func() {
+  for {
+    select {
+    case <-done:
+      fmt.Println("Finished")
+      return
+    default:
+      fmt.Printf("Channel currently has %d items\n", len(outc))
+      time.Sleep(10 * time.Millisecond)
+    }
+  }
+}()
+
+// do things...
+
+close(inc)
+```
+
+WithDone returns two channels: a channel containing piped input from the input channel as well and a channel which will be closed when the input channel has been closed and all values written to the piped output channel.
+
+WithDone is meant to be used in situations where a component needs awareness of the lifetime of a channel but interacting with the channel directly is not desirable.  In the example above, the `done` channel is used in a goroutine to report the current length of the channel at a regular interval.
