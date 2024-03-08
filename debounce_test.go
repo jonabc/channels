@@ -13,7 +13,7 @@ func TestDebounce(t *testing.T) {
 	inc := make(chan int, 100)
 
 	delay := 20 * time.Millisecond
-	outc := channels.Debounce(inc, delay)
+	outc, getDebouncedCount := channels.Debounce(inc, delay)
 	require.Equal(t, cap(inc), cap(outc))
 
 	start := time.Now()
@@ -25,6 +25,9 @@ func TestDebounce(t *testing.T) {
 
 	inc <- 2
 	inc <- 1
+
+	time.Sleep(2 * time.Millisecond)
+	require.Equal(t, 2, getDebouncedCount())
 
 	// still waiting for debounce, out channel should be empty
 	require.Len(t, outc, 0)
@@ -75,7 +78,7 @@ func TestDebounceKeyed(t *testing.T) {
 	defer close(inc)
 
 	delay := 5 * time.Millisecond
-	outc := channels.DebounceCustom(inc)
+	outc, getDebouncedCount := channels.DebounceCustom(inc)
 	require.Equal(t, cap(inc), cap(outc))
 
 	start := time.Now()
@@ -87,6 +90,8 @@ func TestDebounceKeyed(t *testing.T) {
 		inc <- &customDebouncingType{key: "1", value: "val2", delay: 1 * time.Millisecond}
 		time.Sleep(2 * time.Millisecond)
 
+		// should have one debounced item after pushing "key:1" twice
+		require.Equal(t, 1, getDebouncedCount())
 		inc <- &customDebouncingType{key: "2", value: "val1", delay: delay}
 		inc <- &customDebouncingType{key: "2", value: "val2", delay: 1 * time.Millisecond}
 		inc <- &customDebouncingType{key: "1", value: "val3", delay: 2 * time.Millisecond}
@@ -103,6 +108,9 @@ func TestDebounceKeyed(t *testing.T) {
 		{key: "1", value: "val1,val2,val3", delay: delay},
 	})
 	require.GreaterOrEqual(t, time.Since(start), delay)
+
+	// should have one more item being debounced
+	require.Equal(t, 1, getDebouncedCount())
 
 	results = append(results, <-outc)
 

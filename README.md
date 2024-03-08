@@ -46,7 +46,7 @@ Like Batch, but blocks until the input channel is closed and all values are read
 
 ```go
 // signature
-func Debounce[T comparable](inc <-chan T, delay time.Duration) <- chan T
+func Debounce[T comparable](inc <-chan T, delay time.Duration) (<- chan T, func() int)
 
 // usage
 inc := make(chan int)
@@ -73,6 +73,8 @@ Debounce reads values from the input channel and pushes them to the returned out
 
 The channel returned by Debounce has the same capacity as the input channel.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
 
+Debounce also returns a function which returns the number of debounced values that are currently being delayed
+
 For more complicated use cases, see [DebounceCustom](./#debouncecustom) below
 
 ## DebounceCustom
@@ -89,7 +91,7 @@ type DebounceInput[K comparable, T Keyable[K]] interface {
 	Reduce(T) T
 }
 
-func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) <- chan T
+func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) (<- chan T, func() int)
 
 // usage
 type myType struct {
@@ -139,6 +141,8 @@ DebounceCustom is like Debounce but with per-item configurability over compariso
 3. `Reduce(T) T` combines the value with another value.  As duplicate values are seen (as determined by comparisons of `Key()`), they will be continuously reduced to a single value which will be returned after the debounce period for that value has elapsed.
 
 The channel returned by DebounceCustom has the same capacity as the input channel.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
+
+DebounceCustom also returns a function which returns the number of debounced values that are currently being delayed.
 
 ## FlatMap
 
