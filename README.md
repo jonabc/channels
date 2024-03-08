@@ -140,6 +140,52 @@ DebounceCustom is like Debounce but with per-item configurability over compariso
 
 The channel returned by DebounceCustom has the same capacity as the input channel.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
 
+## FlatMap
+
+```go
+// signature
+func FlatMap[TIn any, TOut any, TOutSlice []T](inc <-chan TIn, mapFn func(TIn) TOut) <- chan TOut
+
+// usage
+inc := make(chan int)
+// map integers to an array of different values
+outc := FlatMap(inc, func(i int) []int { return []int{i*10,i*10+1} })
+
+inc <- 1
+inc <- 2
+close(inc)
+
+results := []int{}
+for result := range outc {
+  result = append(results, result)
+}
+// results == []int{10,11,20,21}
+```
+
+FlatMap reads values from the input channel and applies the provided `mapFn` to each value.  Each element in the slice returned by `mapFn` is then sent to the output channel.
+
+The output channel will have the same capacity as the input channel, and is closed once the input channel is closed and all mapped values are pushed to the output channel.
+
+## FlatMapValues (Blocking)
+
+```go
+// signature
+func FlatMapValues[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) TOut) []TOut
+
+// usage
+inc := make(chan int)
+
+inc <- 1
+inc <- 2
+close(inc)
+
+// map integers to an array of different values
+results := FlatMapValues(inc, func(i int) []int { return []int{i*10,i*10+1} })
+// results == []int{10, 11, 20, 21}
+```
+
+Like FlatMap, but blocks until the input channel is closed and all values are read.  FlatMapValues reads all values from the input channel and returns a flattened array of values returned from passing each input value into `mapFn`.
+
 ## Map
 
 ```go
@@ -420,7 +466,38 @@ inc <- 4
 close(inc)
 
 results := SplitValues(inc, func(i int, chans []chan<- T) { chans[i%2] <- i })
+evens := results[0]
+odds := results[1]
 // results == [][]int{{2, 4}, {1, 3}}
+// evens == []int{2, 4}
+// odds == []int{1, 3}
 ```
 
-Like Select, but blocks until the input channel is closed and all values are read.  SelectValues reads all values from the input channel and returns an array values that return true from the provided `selectFn` function.
+Like Split, but blocks until the input channel is closed and all values are read.  SplitValues reads all values from the input channel and returns `[][]T`, a two-dimensional slice containing the results from each split channel.
+- The first dimension, `i` in `[i][j]T` matches the size and order of channels provided to `splitFn`
+- The second dimension, `j` in `[i][j]T` matches the size and order of values written to `chans[i]` in `splitFn`
+
+## Tap
+
+```go
+// signature
+func Tap[T any](inc <-chan T, tapFn func(T)) <-chan T
+
+// usage
+
+inc := make(chan int, 4)
+// log values to stdout as they are seen
+outc := channels.Tap(inc, func(i int) { fmt.Println(i) })
+
+inc <- 1
+inc <- 2
+close(inc)
+
+results := []int{}
+for result := range outc {
+  result = append(results, result)
+}
+// results == []int{1, 2}
+```
+
+Tap reads values from the input channel and calls the provided `tapFn` with each value before writing the value to the output channel.  The output channel has the same capacity as the input channel, and will be closed after the input channel is closed and drained.
