@@ -33,7 +33,12 @@ func TestMerge(t *testing.T) {
 				}(channel, i)
 			}
 
-			merged := channels.Merge[int](chans...)
+			merged := channels.Merge(3, chans...)
+			if len(chans) == 1 {
+				require.Equal(t, chans[0], merged)
+			} else {
+				require.Equal(t, 3, cap(merged))
+			}
 
 			results := make([]int, 0, count)
 			for out := range merged {
