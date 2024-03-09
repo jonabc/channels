@@ -534,7 +534,7 @@ go func() {
 close(inc)
 ```
 
-WithDone returns two channels: a channel containing piped input from the input channel as well and a channel which will be closed when the input channel has been closed and all values written to the piped output channel.
+WithDone returns two channels: a channel containing piped values from the input channel and a channel which will be closed when the input channel has been closed and all values written to the piped output channel.
 
 WithDone is meant to be used in situations where a component needs awareness of the lifetime of a channel but interacting with the channel directly is not desirable.  In the example above, the `done` channel is used in a goroutine to report the current length of the channel at a regular interval.
 
