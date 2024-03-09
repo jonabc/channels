@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/jonabc/channels"
 	"github.com/stretchr/testify/require"
@@ -37,4 +38,30 @@ func TestWithDone(t *testing.T) {
 
 	require.Equal(t, []int{1, 2}, results)
 	require.Nil(t, done)
+}
+
+func TestWithSignal(t *testing.T) {
+	inc := make(chan int, 4)
+
+	outc, signalc := channels.WithSignal(inc, func(i int) (time.Time, bool) {
+		return time.Now(), i > 10
+	})
+
+	inc <- 1
+	inc <- 11
+	inc <- 4
+	inc <- 100
+	close(inc)
+
+	results := make([]int, 0, 4)
+	for result := range outc {
+		results = append(results, result)
+	}
+	require.Equal(t, []int{1, 11, 4, 100}, results)
+
+	signals := make([]time.Time, 0)
+	for signal := range signalc {
+		signals = append(signals, signal)
+	}
+	require.Len(t, signals, 2)
 }

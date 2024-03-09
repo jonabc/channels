@@ -537,3 +537,30 @@ close(inc)
 WithDone returns two channels: a channel containing piped input from the input channel as well and a channel which will be closed when the input channel has been closed and all values written to the piped output channel.
 
 WithDone is meant to be used in situations where a component needs awareness of the lifetime of a channel but interacting with the channel directly is not desirable.  In the example above, the `done` channel is used in a goroutine to report the current length of the channel at a regular interval.
+
+## WithSignal
+
+```go
+// signature
+WithSignal[T any, S any](inc <-chan T, signalFn func(T) (S, bool)) (<-chan T, <-chan S)
+
+// usage
+inc := make(int, 2)
+outc, signalc := channels.WithSignal(inc, func(i int) (time.Time, bool) {
+  return time.Now(), i%2 == 0
+})
+
+go func() {
+  for time := range signalc {
+    fmt.Printf("Even number seen at %v\n", time)
+  }
+}()
+
+// do things...
+
+close(inc)
+```
+
+WithSignal returns two channels: a channel containing piped values from the input channel and a channel which contains values returnd by `signalFn` when `signalFn` also returns true.
+
+Both the output channel and the signal channel are closed when the input channels is closed and emptied.
