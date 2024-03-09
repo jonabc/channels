@@ -9,6 +9,8 @@ import (
 )
 
 func TestMap(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 100)
 	defer close(in)
 
@@ -26,6 +28,8 @@ func TestMap(t *testing.T) {
 }
 
 func TestMapValues(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 100)
 
 	in <- 1

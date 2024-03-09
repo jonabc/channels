@@ -9,6 +9,8 @@ import (
 )
 
 func TestMerge(t *testing.T) {
+	t.Parallel()
+
 	// tests cover some base cases:
 	// - 1 channels explicit handling
 	// - 2 channels merge2
@@ -20,6 +22,8 @@ func TestMerge(t *testing.T) {
 	for _, count := range channelCounts {
 		count := count
 		t.Run(fmt.Sprintf("With%dChannels", count), func(t *testing.T) {
+			t.Parallel()
+
 			chans := make([](<-chan int), 0, count)
 			for i := 0; i < count; i++ {
 				channel := make(chan int)

@@ -9,6 +9,8 @@ import (
 )
 
 func TestWithDone(t *testing.T) {
+	t.Parallel()
+
 	inc := make(chan int, 4)
 
 	outc, done := channels.WithDone(inc)
@@ -41,6 +43,8 @@ func TestWithDone(t *testing.T) {
 }
 
 func TestWithSignal(t *testing.T) {
+	t.Parallel()
+
 	inc := make(chan int, 4)
 
 	outc, signalc := channels.WithSignal(inc, func(i int) (time.Time, bool) {

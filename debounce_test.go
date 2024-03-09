@@ -10,6 +10,8 @@ import (
 )
 
 func TestDebounce(t *testing.T) {
+	t.Parallel()
+
 	inc := make(chan int, 100)
 
 	delay := 20 * time.Millisecond
@@ -73,7 +75,9 @@ func (d *customDebouncingType) Reduce(other *customDebouncingType) *customDeboun
 	return d
 }
 
-func TestDebounceKeyed(t *testing.T) {
+func TestDebounceCustom(t *testing.T) {
+	t.Parallel()
+
 	inc := make(chan *customDebouncingType, 100)
 	defer close(inc)
 

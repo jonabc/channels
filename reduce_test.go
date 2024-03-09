@@ -9,6 +9,8 @@ import (
 )
 
 func TestReduce(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 100)
 	defer close(in)
 
@@ -30,6 +32,8 @@ func TestReduce(t *testing.T) {
 }
 
 func TestReduceValues(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 100)
 
 	in <- 1

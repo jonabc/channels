@@ -10,6 +10,8 @@ import (
 )
 
 func TestSelect(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 100)
 	defer close(in)
 
@@ -26,6 +28,8 @@ func TestSelect(t *testing.T) {
 }
 
 func TestSelectValues(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 100)
 
 	in <- 1

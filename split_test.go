@@ -9,6 +9,8 @@ import (
 )
 
 func TestSplit(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 10)
 	defer close(in)
 
@@ -41,6 +43,8 @@ func TestSplit(t *testing.T) {
 }
 
 func TestSplitValues(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 10)
 	in <- 1
 	in <- 2
