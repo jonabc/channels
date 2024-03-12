@@ -2,7 +2,6 @@ package channels_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/jonabc/channels"
 	"github.com/stretchr/testify/require"
@@ -12,21 +11,23 @@ func TestReduce(t *testing.T) {
 	in := make(chan int, 100)
 	defer close(in)
 
-	out := channels.Reduce(in, func(current int, i int) int { return current + i })
+	out := channels.Reduce(in, func(current int, i int) (int, bool) {
+		if i == 3 {
+			return 10, false
+		}
+		return current + i, true
+	})
 	require.Equal(t, cap(in), cap(out))
+	in <- 1
+	in <- 2
+	in <- 3
+	in <- 4
 
-	current := 0
-	for i := 0; i < 10; i++ {
-		in <- i
+	require.Equal(t, 1, <-out)
+	require.Equal(t, 3, <-out)
+	require.Equal(t, 7, <-out)
 
-		time.Sleep(1 * time.Millisecond)
-		next, ok := <-out
-		require.True(t, ok)
-
-		current = current + i
-		require.Equal(t, current, next)
-
-	}
+	require.Equal(t, 0, len(out))
 }
 
 func TestReduceValues(t *testing.T) {
@@ -35,8 +36,14 @@ func TestReduceValues(t *testing.T) {
 	in <- 1
 	in <- 2
 	in <- 3
+	in <- 4
 	close(in)
 
-	out := channels.ReduceValues(in, func(current int, i int) int { return current + i })
-	require.Equal(t, out, 6)
+	out := channels.ReduceValues(in, func(current int, i int) (int, bool) {
+		if i == 3 {
+			return 10, false
+		}
+		return current + i, true
+	})
+	require.Equal(t, out, 7)
 }

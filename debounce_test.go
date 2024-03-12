@@ -68,9 +68,13 @@ func (d *customDebouncingType) Delay() time.Duration {
 	return d.delay
 }
 
-func (d *customDebouncingType) Reduce(other *customDebouncingType) *customDebouncingType {
+func (d *customDebouncingType) Reduce(other *customDebouncingType) (*customDebouncingType, bool) {
+	if d.key == "3" {
+		return d, false
+	}
+
 	d.value += "," + other.value
-	return d
+	return d, true
 }
 
 func TestDebounceKeyed(t *testing.T) {
@@ -95,28 +99,25 @@ func TestDebounceKeyed(t *testing.T) {
 		inc <- &customDebouncingType{key: "2", value: "val1", delay: delay}
 		inc <- &customDebouncingType{key: "2", value: "val2", delay: 1 * time.Millisecond}
 		inc <- &customDebouncingType{key: "1", value: "val3", delay: 2 * time.Millisecond}
+
+		time.Sleep(2 * time.Millisecond)
+		inc <- &customDebouncingType{key: "3", value: "val1", delay: delay}
+		inc <- &customDebouncingType{key: "3", value: "shouldnotreduce", delay: 1 * time.Millisecond}
 		wg.Wait()
 	}()
 
 	require.Len(t, outc, 0)
 
-	results := make([]*customDebouncingType, 0)
-	results = append(results, <-outc)
-
 	// only the delay for the first element seen on any key counts
-	require.ElementsMatch(t, results, []*customDebouncingType{
-		{key: "1", value: "val1,val2,val3", delay: delay},
-	})
+	require.Equal(t, &customDebouncingType{key: "1", value: "val1,val2,val3", delay: delay}, <-outc)
+
 	require.GreaterOrEqual(t, time.Since(start), delay)
 
-	// should have one more item being debounced
-	require.Equal(t, 1, getDebouncedCount())
-
-	results = append(results, <-outc)
-
-	require.ElementsMatch(t, results, []*customDebouncingType{
-		{key: "1", value: "val1,val2,val3", delay: delay},
-		{key: "2", value: "val1,val2", delay: delay},
-	})
+	require.Equal(t, 2, getDebouncedCount())
+	require.Equal(t, &customDebouncingType{key: "2", value: "val1,val2", delay: delay}, <-outc)
 	require.GreaterOrEqual(t, time.Since(start), delay+(2*time.Millisecond))
+
+	require.Equal(t, 1, getDebouncedCount())
+	require.Equal(t, &customDebouncingType{key: "3", value: "val1", delay: delay}, <-outc)
+	require.GreaterOrEqual(t, time.Since(start), delay+(4*time.Millisecond))
 }
