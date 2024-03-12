@@ -61,3 +61,17 @@ func SplitValues[T any](inc <-chan T, count int, splitFn func(T, []chan<- T)) []
 	wg.Wait()
 	return results
 }
+
+// Helper function that wraps Split, returning two output channels.
+// See Split for additional details.
+func Split2[T any](inc <-chan T, splitFn func(T, []chan<- T)) (<-chan T, <-chan T) {
+	c := Split(inc, 2, splitFn)
+	return c[0], c[1]
+}
+
+// Helper function that wraps Split, returning three output channels.
+// See Split for additional details.
+func Split3[T any](inc <-chan T, splitFn func(T, []chan<- T)) (<-chan T, <-chan T, <-chan T) {
+	c := Split(inc, 3, splitFn)
+	return c[0], c[1], c[2]
+}

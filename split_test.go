@@ -60,3 +60,43 @@ func TestSplitValues(t *testing.T) {
 	odds := results[1]
 	require.ElementsMatch(t, odds, []int{1, 3})
 }
+
+func TestSplit2(t *testing.T) {
+	in := make(chan int, 10)
+	defer close(in)
+
+	evens, odds := channels.Split2(in, func(i int, chans []chan<- int) {
+		require.Len(t, chans, 2)
+		chans[i%2] <- i
+	})
+
+	in <- 1
+	in <- 2
+	in <- 3
+	in <- 4
+
+	require.Equal(t, 2, <-evens)
+	require.Equal(t, 4, <-evens)
+	require.Equal(t, 1, <-odds)
+	require.Equal(t, 3, <-odds)
+}
+
+func TestSplit3(t *testing.T) {
+	in := make(chan int, 10)
+	defer close(in)
+
+	zeros, ones, twos := channels.Split3(in, func(i int, chans []chan<- int) {
+		require.Len(t, chans, 3)
+		chans[i%3] <- i
+	})
+
+	in <- 1
+	in <- 2
+	in <- 3
+	in <- 4
+
+	require.Equal(t, 1, <-ones)
+	require.Equal(t, 2, <-twos)
+	require.Equal(t, 3, <-zeros)
+	require.Equal(t, 4, <-ones)
+}
