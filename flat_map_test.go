@@ -11,11 +11,14 @@ func TestFlatMap(t *testing.T) {
 	in := make(chan int, 100)
 	defer close(in)
 
-	out := channels.FlatMap(in, func(i int) []int { return []int{i * 10, i*10 + 1} })
+	out := channels.FlatMap(in, func(i int) ([]int, bool) {
+		return []int{i * 10, i*10 + 1}, i < 3
+	})
 	require.Equal(t, cap(in), cap(out))
 
 	in <- 1
 	in <- 2
+	in <- 3
 
 	require.Equal(t, <-out, 10)
 	require.Equal(t, <-out, 11)
@@ -29,9 +32,12 @@ func TestFlatMapValues(t *testing.T) {
 
 	in <- 1
 	in <- 2
+	in <- 3
 	close(in)
 
-	out := channels.FlatMapValues(in, func(i int) []int { return []int{i * 10, i*10 + 1} })
+	out := channels.FlatMapValues(in, func(i int) ([]int, bool) {
+		return []int{i * 10, i*10 + 1}, i < 3
+	})
 
 	require.Len(t, out, 4)
 	require.Equal(t, out, []int{10, 11, 20, 21})

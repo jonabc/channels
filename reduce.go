@@ -6,14 +6,18 @@ package channels
 // 2. the output from the previous call of the reducer function for all other iterations.
 
 // The output of each call to the reducer function is pushed to the output channel.
-func Reduce[TIn any, TOut any](inc <-chan TIn, reduceFn func(TOut, TIn) TOut) <-chan TOut {
+func Reduce[TIn any, TOut any](inc <-chan TIn, reduceFn func(TOut, TIn) (TOut, bool)) <-chan TOut {
 	outc := make(chan TOut, cap(inc))
 
 	go func() {
 		defer close(outc)
 		var result TOut
 		for in := range inc {
-			result = reduceFn(result, in)
+			next, ok := reduceFn(result, in)
+			if !ok {
+				continue
+			}
+			result = next
 			outc <- result
 		}
 	}()
@@ -24,7 +28,7 @@ func Reduce[TIn any, TOut any](inc <-chan TIn, reduceFn func(TOut, TIn) TOut) <-
 // Like Reduce, but blocks until the input channel is closed and all values are read.
 // ReduceValues reads all values from the input channel and returns the value returned
 // after all values from the input channel have been passed into `reduceFn`.
-func ReduceValues[TIn any, TOut any](inc <-chan TIn, reduceFn func(TOut, TIn) TOut) TOut {
+func ReduceValues[TIn any, TOut any](inc <-chan TIn, reduceFn func(TOut, TIn) (TOut, bool)) TOut {
 	outc := Reduce(inc, reduceFn)
 	var result TOut
 	for out := range outc {

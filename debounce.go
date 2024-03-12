@@ -12,7 +12,7 @@ type Keyable[K comparable] interface {
 type DebounceInput[K comparable, T Keyable[K]] interface {
 	Keyable[K]
 	Delay() time.Duration
-	Reduce(T) T
+	Reduce(T) (T, bool)
 }
 
 type debounceInputComparable[T comparable] struct {
@@ -28,8 +28,8 @@ func (i *debounceInputComparable[T]) Delay() time.Duration {
 	return i.delay
 }
 
-func (i *debounceInputComparable[T]) Reduce(*debounceInputComparable[T]) *debounceInputComparable[T] {
-	return i
+func (i *debounceInputComparable[T]) Reduce(*debounceInputComparable[T]) (*debounceInputComparable[T], bool) {
+	return i, true
 }
 
 // Debounce reads values from the input channel and pushes them to the
@@ -110,7 +110,10 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) (<-chan T
 				key := next.Key()
 				value, ok := buffer.data[key]
 				if ok {
-					next = value.Reduce(next)
+					next, ok = value.Reduce(next)
+					if !ok {
+						next = value
+					}
 				} else {
 					// add 1 to the waitgroup, the value will be decremented when the
 					// debounced value is read from the waitAny channel

@@ -88,7 +88,7 @@ type Keyable[K comparable] interface {
 type DebounceInput[K comparable, T Keyable[K]] interface {
 	Keyable[K]
 	Delay() time.Duration
-	Reduce(T) T
+	Reduce(T) (T, bool)
 }
 
 func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) (<- chan T, func() int)
@@ -108,9 +108,13 @@ func (d *myType) Delay() time.Duration {
 	return d.delay
 }
 
-func (d *myType) Reduce(other *myType) *myType {
-	d.value += other.value
-	return d
+func (d *myType) Reduce(other *myType) (*myType, bool) {
+  if d.key == "3" {
+    return d, false
+  }
+
+  d.value += other.value
+	return d, true
 }
 
 inc := make(chan *myType)
@@ -124,6 +128,8 @@ inc <- &myType{key:"1", val: 1, delay: delay}
 time.Sleep(1 * time.Second)
 inc <- &myType{key:"2", val: 2, delay: delay}
 inc <- &myType{key:"1", val: 3, delay: 1 * time.Millisecond}
+inc <- &myType{key:"3", val: 3, delay: delay}
+inc <- &myType{key:"3", val: 4, delay: 1 * time.Millisecond}
 
 // will block for approx `delay - 1s` time period
 result := <- outc
@@ -131,6 +137,9 @@ result := <- outc
 
 result = <- outc
 // result == &myType{key:"2", val: 2, delay: delay}
+
+result = <- outc
+// result == &myType{key: "3", val: 3, delay: delay}
 ```
 
 DebounceCustom is like Debounce but with per-item configurability over comparisons, delays, and reducing multiple values to a single debounced value.  Where Debounce requires `comparable` values in the input channel, DebounceCustom requires types that implement the `DebounceInput[K comparable, T Keyable[K]]` interface.  The typing is a little complex but in practice most of the complexity is hidden from callers.  Values of type `T` passsed into DebounceCustom must implement:
@@ -148,15 +157,16 @@ DebounceCustom also returns a function which returns the number of debounced val
 
 ```go
 // signature
-func FlatMap[TIn any, TOut any, TOutSlice []T](inc <-chan TIn, mapFn func(TIn) TOut) <- chan TOut
+func FlatMap[TIn any, TOut any, TOutSlice []T](inc <-chan TIn, mapFn func(TIn) (TOut, bool)) <- chan TOut
 
 // usage
 inc := make(chan int)
 // map integers to an array of different values
-outc := FlatMap(inc, func(i int) []int { return []int{i*10,i*10+1} })
+outc := FlatMap(inc, func(i int) ([]int, bool) { return []int{i*10,i*10+1}, i < 3 })
 
 inc <- 1
 inc <- 2
+inc <- 3
 close(inc)
 
 results := []int{}
@@ -174,17 +184,18 @@ The output channel will have the same capacity as the input channel, and is clos
 
 ```go
 // signature
-func FlatMapValues[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) TOut) []TOut
+func FlatMapValues[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) (TOut, bool)) []TOut
 
 // usage
 inc := make(chan int)
 
 inc <- 1
 inc <- 2
+inc <- 3
 close(inc)
 
 // map integers to an array of different values
-results := FlatMapValues(inc, func(i int) []int { return []int{i*10,i*10+1} })
+results := FlatMapValues(inc, func(i int) ([]int, bool) { return []int{i*10,i*10+1}, i < 3 })
 // results == []int{10, 11, 20, 21}
 ```
 
@@ -194,15 +205,16 @@ Like FlatMap, but blocks until the input channel is closed and all values are re
 
 ```go
 // signature
-func Map[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) TOut) <- chan TOut
+func Map[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) (TOut, bool)) <- chan TOut
 
 // usage
 inc := make(chan int)
 // map integers to a boolean indicating if the values are odd (false) or even (true)
-outc := Map(inc, func(i int) bool { return i%2 == 0 })
+outc := Map(inc, func(i int) (bool, bool) { return i%2 == 0, i < 3> })
 
 inc <- 1
 inc <- 2
+inc <- 3
 close(inc)
 
 results := []int{}
@@ -218,17 +230,18 @@ Map reads values from the input channel and applies the provided `mapFn` to each
 
 ```go
 // signature
-func MapValues[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) TOut) []TOut
+func MapValues[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) (TOut, bool)) []TOut
 
 // usage
 inc := make(chan int)
 
 inc <- 1
 inc <- 2
+inc <- 3
 close(inc)
 
 // map integers to a boolean indicating if the values are odd (false) or even (true)
-results := Map(inc, func(i int) bool { return i%2 == 0 })
+results := Map(inc, func(i int) (bool, bool) { return i%2 == 0, i < 3 })
 // results == []bool{false, true}
 ```
 
@@ -277,7 +290,7 @@ Merge merges multiple input channels into a single output channel.  The order of
 
 ```go
 // signature
-func Reduce[TIn any, TOut any](inc <-chan T, reduceFn func(TOut, TIn) TOut) <- chan TOut
+func Reduce[TIn any, TOut any](inc <-chan T, reduceFn func(TOut, TIn) (TOut, bool)) <- chan TOut
 
 // usage
 inc := make(chan int)
@@ -316,7 +329,7 @@ The output of each call to the reducer function is pushed to the output channel.
 
 ```go
 // signature
-func ReduceValues[TIn any, TOut any](inc <-chan T, reduceFn func(TOut, TIn) TOut) TOut
+func ReduceValues[TIn any, TOut any](inc <-chan T, reduceFn func(TOut, TIn) (TOut, bool)) TOut
 
 // usage
 inc := make(chan int, 2)
