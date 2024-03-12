@@ -2,6 +2,8 @@
 
 Some utilities for working with channels.
 
+While this library is useful for creating chained operations into a pipeline, it is intended to be lightweight. Pipeline orchestration, error handling, logging, and metrics tracking should be implemented by callers.
+
 ## Batch
 
 ```go
