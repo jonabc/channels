@@ -96,73 +96,49 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) (<-chan T
 		var wg sync.WaitGroup
 		done := make(chan struct{})
 
-		var waitAny <-chan K
+		for next := range inc {
+			key := next.Key()
 
-		for inc != nil || waitAny != nil {
-			select {
-			case next, ok := <-inc:
+			if value, ok := buffer.data[key]; ok {
+				next, ok = value.Reduce(next)
 				if !ok {
-					close(done)
-					inc = nil
-					break
+					next = value
 				}
+			} else {
+				// add 1 to the waitgroup, the value will be decremented when the
+				// debounced value is read from the waitAny channel
+				wg.Add(1)
+				delay := next.Delay()
 
-				key := next.Key()
-				value, ok := buffer.data[key]
-				if ok {
-					next, ok = value.Reduce(next)
-					if !ok {
-						next = value
-					}
-				} else {
-					// add 1 to the waitgroup, the value will be decremented when the
-					// debounced value is read from the waitAny channel
-					wg.Add(1)
-					debounceChan := make(chan K)
-					delay := next.Delay()
-					if delay == 0 {
-						delay = 1 * time.Nanosecond
+				go func(key K, delay time.Duration) {
+					defer wg.Done()
+
+					// push the key to the output channel after the delay,
+					// or when the done channel is closed, signaling
+					// to flush all remaining values
+					select {
+					case <-done:
+					case <-time.After(delay):
 					}
 
-					go func(key K, delay time.Duration) {
-						defer close(debounceChan)
+					value := buffer.data[key]
 
-						// push the key to the values debounce channel
-						// after a delay, or when the done channel is closed
-						// signalling the input channel is closed and values
-						// should be flushed
-						select {
-						case <-done:
-						case <-time.After(delay):
-						}
-						debounceChan <- key
-					}(key, delay)
+					// lock on write
+					buffer.Lock()
+					delete(buffer.data, key)
+					buffer.Unlock()
 
-					// merge the new debounce channel with existing waiters to build a tree of
-					// debouncer notifications that can be handled one at a time.
-					waitAny = Merge(0, waitAny, debounceChan)
-				}
-
-				// lock only on write
-				buffer.Lock()
-				buffer.data[key] = next
-				buffer.Unlock()
-			case completed, ok := <-waitAny:
-				if !ok {
-					waitAny = nil
-					break
-				}
-
-				wg.Done()
-				outc <- buffer.data[completed]
-
-				// lock only on write
-				buffer.Lock()
-				delete(buffer.data, completed)
-				buffer.Unlock()
+					outc <- value
+				}(key, delay)
 			}
+
+			// lock only on write
+			buffer.Lock()
+			buffer.data[key] = next
+			buffer.Unlock()
 		}
 
+		close(done)
 		wg.Wait()
 	}()
 
