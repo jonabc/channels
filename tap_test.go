@@ -2,7 +2,6 @@ package channels_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/jonabc/channels"
 	"github.com/stretchr/testify/require"
@@ -10,7 +9,6 @@ import (
 
 func TestTap(t *testing.T) {
 	in := make(chan int, 10)
-	defer close(in)
 
 	pre := make([]int, 0)
 	post := make([]int, 0)
@@ -23,11 +21,13 @@ func TestTap(t *testing.T) {
 
 	in <- 1
 	in <- 2
+	close(in)
 
-	time.Sleep(1 * time.Millisecond)
-
-	require.Equal(t, 1, <-out)
-	require.Equal(t, 2, <-out)
+	results := []int{}
+	for result := range out {
+		results = append(results, result)
+	}
+	require.Equal(t, []int{1, 2}, results)
 	require.Equal(t, []int{1, 2}, pre)
 	require.Equal(t, []int{1, 2}, post)
 	require.Len(t, out, 0)
