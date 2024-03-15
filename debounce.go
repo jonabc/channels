@@ -80,72 +80,80 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration) (<-chan T, func()
 // that are currently being delayed
 func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) (<-chan T, func() int) {
 	outc := make(chan T, cap(inc))
+	done := make(chan struct{})
 
 	// the buffer stores a map of key value pairs of
 	// items from the input channel currently being debounced
-	buffer := struct {
-		sync.Mutex
-		data map[K]T
-	}{
+	buffer := debounceBuffer[K, T]{
 		data: make(map[K]T),
+		done: done,
 	}
 
 	go func() {
 		defer close(outc)
 
-		var wg sync.WaitGroup
-		done := make(chan struct{})
-
 		for next := range inc {
-			key := next.Key()
-
-			if value, ok := buffer.data[key]; ok {
-				next, ok = value.Reduce(next)
-				if !ok {
-					next = value
-				}
-			} else {
-				// add 1 to the waitgroup, the value will be decremented when the
-				// debounced value is read from the waitAny channel
-				wg.Add(1)
-				delay := next.Delay()
-
-				go func(key K, delay time.Duration) {
-					defer wg.Done()
-
-					// push the key to the output channel after the delay,
-					// or when the done channel is closed, signaling
-					// to flush all remaining values
-					select {
-					case <-done:
-					case <-time.After(delay):
-					}
-
-					value := buffer.data[key]
-
-					// lock on write
-					buffer.Lock()
-					delete(buffer.data, key)
-					buffer.Unlock()
-
-					outc <- value
-				}(key, delay)
-			}
-
-			// lock only on write
-			buffer.Lock()
-			buffer.data[key] = next
-			buffer.Unlock()
+			buffer.process(next, func(t T) {
+				outc <- t
+			})
 		}
 
 		close(done)
-		wg.Wait()
+		buffer.wg.Wait()
 	}()
 
-	return outc, func() int {
+	return outc, buffer.len
+}
+
+// debounceBuffer stores debounced values and
+type debounceBuffer[K comparable, T DebounceInput[K, T]] struct {
+	sync.Mutex
+	data map[K]T
+
+	wg   sync.WaitGroup
+	done <-chan struct{}
+}
+
+func (buffer *debounceBuffer[K, T]) process(item T, onDebounce func(T)) {
+	buffer.Lock()
+	defer buffer.Unlock()
+
+	key := item.Key()
+
+	if value, hasExistingValue := buffer.data[key]; hasExistingValue {
+		value, ok := value.Reduce(item)
+		if ok {
+			buffer.data[key] = value
+		}
+		return
+	}
+
+	// for new items, start a routine to push the item
+	buffer.data[key] = item
+	buffer.wg.Add(1)
+	delay := item.Delay()
+	go func(key K, delay time.Duration) {
+		defer buffer.wg.Done()
+
+		// call onDebounce after the specified delay
+		// or when the done channel is closed
+		select {
+		case <-buffer.done:
+		case <-time.After(delay):
+		}
+
 		buffer.Lock()
 		defer buffer.Unlock()
 
-		return len(buffer.data)
-	}
+		item := buffer.data[key]
+		delete(buffer.data, key)
+		onDebounce(item)
+	}(key, delay)
+}
+
+func (buffer *debounceBuffer[K, T]) len() int {
+	buffer.Lock()
+	defer buffer.Unlock()
+
+	return len(buffer.data)
 }
