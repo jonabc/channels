@@ -8,6 +8,8 @@ import (
 )
 
 func TestWithDone(t *testing.T) {
+	t.Parallel()
+
 	inc := make(chan int, 4)
 
 	outc, done := channels.WithDone(inc)
