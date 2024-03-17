@@ -1,6 +1,7 @@
 package channels_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jonabc/channels"
@@ -12,11 +13,18 @@ func TestTap(t *testing.T) {
 
 	in := make(chan int, 10)
 
+	ctx := context.Background()
 	pre := make([]int, 0)
 	post := make([]int, 0)
-	out := channels.Tap(in,
-		func(i int) { pre = append(pre, i) },
-		func(i int) { post = append(post, i) },
+	out := channels.Tap(ctx, in,
+		func(fnCtx context.Context, i int) {
+			require.Equal(t, ctx, fnCtx)
+			pre = append(pre, i)
+		},
+		func(fnCtx context.Context, i int) {
+			require.Equal(t, ctx, fnCtx)
+			post = append(post, i)
+		},
 	)
 
 	require.Equal(t, cap(in), cap(out))

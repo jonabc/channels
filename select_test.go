@@ -1,6 +1,7 @@
 package channels_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -15,7 +16,11 @@ func TestSelect(t *testing.T) {
 	in := make(chan int, 100)
 	defer close(in)
 
-	out := channels.Select(in, func(i int) bool { return i%2 == 0 })
+	ctx := context.Background()
+	out := channels.Select(ctx, in, func(fnCtx context.Context, i int) bool {
+		require.Equal(t, ctx, fnCtx)
+		return i%2 == 0
+	})
 	require.Equal(t, cap(in), cap(out))
 
 	in <- 1
@@ -36,7 +41,11 @@ func TestSelectValues(t *testing.T) {
 	in <- 2
 	close(in)
 
-	out := channels.SelectValues(in, func(i int) bool { return i%2 == 0 })
+	ctx := context.Background()
+	out := channels.SelectValues(ctx, in, func(fnCtx context.Context, i int) bool {
+		require.Equal(t, ctx, fnCtx)
+		return i%2 == 0
+	})
 
 	require.Len(t, out, 1)
 	require.Equal(t, out, []int{2})

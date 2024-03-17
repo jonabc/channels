@@ -1,6 +1,7 @@
 package channels_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jonabc/channels"
@@ -13,7 +14,9 @@ func TestReduce(t *testing.T) {
 	in := make(chan int, 100)
 	defer close(in)
 
-	out := channels.Reduce(in, func(current int, i int) (int, bool) {
+	ctx := context.Background()
+	out := channels.Reduce(ctx, in, func(fnCtx context.Context, current int, i int) (int, bool) {
+		require.Equal(t, ctx, fnCtx)
 		if i == 3 {
 			return 10, false
 		}
@@ -43,7 +46,9 @@ func TestReduceValues(t *testing.T) {
 	in <- 4
 	close(in)
 
-	out := channels.ReduceValues(in, func(current int, i int) (int, bool) {
+	ctx := context.Background()
+	out := channels.ReduceValues(ctx, in, func(fnCtx context.Context, current int, i int) (int, bool) {
+		require.Equal(t, ctx, fnCtx)
 		if i == 3 {
 			return 10, false
 		}

@@ -1,6 +1,7 @@
 package channels_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jonabc/channels"
@@ -13,7 +14,9 @@ func TestFlatMap(t *testing.T) {
 	in := make(chan int, 100)
 	defer close(in)
 
-	out := channels.FlatMap(in, func(i int) ([]int, bool) {
+	ctx := context.Background()
+	out := channels.FlatMap(ctx, in, func(fnCtx context.Context, i int) ([]int, bool) {
+		require.Equal(t, ctx, fnCtx)
 		return []int{i * 10, i*10 + 1}, i < 3
 	})
 	require.Equal(t, cap(in), cap(out))
@@ -39,7 +42,9 @@ func TestFlatMapValues(t *testing.T) {
 	in <- 3
 	close(in)
 
-	out := channels.FlatMapValues(in, func(i int) ([]int, bool) {
+	ctx := context.Background()
+	out := channels.FlatMapValues(ctx, in, func(fnCtx context.Context, i int) ([]int, bool) {
+		require.Equal(t, ctx, fnCtx)
 		return []int{i * 10, i*10 + 1}, i < 3
 	})
 

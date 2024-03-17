@@ -1,6 +1,7 @@
 package channels_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jonabc/channels"
@@ -13,7 +14,9 @@ func TestMap(t *testing.T) {
 	in := make(chan int, 100)
 	defer close(in)
 
-	out := channels.Map(in, func(i int) (bool, bool) {
+	ctx := context.Background()
+	out := channels.Map(ctx, in, func(fnCtx context.Context, i int) (bool, bool) {
+		require.Equal(t, ctx, fnCtx)
 		return i%2 == 0, i < 3
 	})
 	require.Equal(t, cap(in), cap(out))
@@ -37,7 +40,9 @@ func TestMapValues(t *testing.T) {
 	in <- 3
 	close(in)
 
-	out := channels.MapValues(in, func(i int) (bool, bool) {
+	ctx := context.Background()
+	out := channels.MapValues(ctx, in, func(fnCtx context.Context, i int) (bool, bool) {
+		require.Equal(t, ctx, fnCtx)
 		return i%2 == 0, i < 3
 	})
 
