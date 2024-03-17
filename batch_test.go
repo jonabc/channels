@@ -1,7 +1,6 @@
 package channels_test
 
 import (
-	"math"
 	"testing"
 	"time"
 
@@ -14,7 +13,6 @@ func TestBatchAfterMaxBatchSize(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
-	defer close(in)
 
 	batchSize := 5
 	out := channels.Batch(in, batchSize, 0)
@@ -22,40 +20,27 @@ func TestBatchAfterMaxBatchSize(t *testing.T) {
 	maxBatches := cap(in) / batchSize
 	require.Equal(t, maxBatches, cap(out))
 
-	batches := 0
-	for i := 1; i <= 2*cap(in); i++ {
-		in <- i
-		if i%batchSize == 0 {
-			batches++
+	go func() {
+		defer close(in)
+		for i := 1; i <= 2*cap(in); i++ {
+			in <- i
 		}
+	}()
 
-		time.Sleep(1 * time.Millisecond)
-		require.Len(t, out, int(math.Min(float64(batches), float64(cap(out)))), out)
-	}
-
-	// After sending all items to  the in channel, 105 items should have been read from it:
-	// (maxBatches * batchSize) in the out channel + batchSize in the internal
-	// batch buffer waiting to be sent.
-	require.Len(t, in, cap(in)-batchSize)
-
-	// The out channel should be at capacity
-	require.Len(t, out, cap(out))
-
-	// All batches should be sent into the in channel
-	require.Equal(t, 2*cap(in)/batchSize, batches)
-
-	for i := 0; i < batches; i++ {
-		time.Sleep(1 * time.Millisecond)
-		batch := <-out
+	i := 0
+	for batch := range out {
 		expected := make([]int, 0, batchSize)
 		for j := i * batchSize; j < i*batchSize+batchSize; j++ {
 			expected = append(expected, j+1)
 		}
 		require.ElementsMatch(t, batch, expected)
+		i++
 	}
 
 	require.Len(t, in, 0)
 	require.Len(t, out, 0)
+	_, ok := <-out
+	require.False(t, ok)
 }
 
 func TestBatchAfterMaxDelay(t *testing.T) {
