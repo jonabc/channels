@@ -11,6 +11,8 @@ import (
 )
 
 func TestBatchAfterMaxBatchSize(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 100)
 	defer close(in)
 
@@ -57,6 +59,8 @@ func TestBatchAfterMaxBatchSize(t *testing.T) {
 }
 
 func TestBatchAfterMaxDelay(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 100)
 	defer close(in)
 
@@ -72,6 +76,8 @@ func TestBatchAfterMaxDelay(t *testing.T) {
 }
 
 func TestBatchDrainsItemsOnInputChannelClose(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 100)
 
 	batchSize := 2
@@ -87,6 +93,8 @@ func TestBatchDrainsItemsOnInputChannelClose(t *testing.T) {
 }
 
 func TestDoesNotDrainEmptyBatchOnChannelClose(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 100)
 
 	batchSize := 2

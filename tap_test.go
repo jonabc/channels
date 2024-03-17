@@ -8,6 +8,8 @@ import (
 )
 
 func TestTap(t *testing.T) {
+	t.Parallel()
+
 	in := make(chan int, 10)
 
 	pre := make([]int, 0)
