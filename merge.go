@@ -4,12 +4,19 @@ import (
 	"sync"
 )
 
+type MergeConfig struct {
+	panc chan<- any
+}
+
 // Merge merges multiple input channels into a single output channel.  The
 // order of values in the output channel is not guaranteed to match the
 // order that values are written to the input channels.  The output channel
 // has the same capacity as the input channel and is closed when all input
 // channels are closed.
-func Merge[T any](capacity int, chans ...<-chan T) <-chan T {
+func Merge[T any](capacity int, chans []<-chan T, opts ...Option[MergeConfig]) <-chan T {
+	cfg := parseOpts(opts...)
+	panc := cfg.panc
+
 	switch len(chans) {
 	case 0:
 		return nil
@@ -23,6 +30,7 @@ func Merge[T any](capacity int, chans ...<-chan T) <-chan T {
 		for len(chans)-i >= 4 {
 			wg.Add(1)
 			go func(i int) {
+				defer handlePanicIfErrc(panc)
 				defer wg.Done()
 				merge4(outc, chans[i], chans[i+1], chans[i+2], chans[i+3])
 			}(i)
@@ -32,6 +40,7 @@ func Merge[T any](capacity int, chans ...<-chan T) <-chan T {
 		for len(chans)-i >= 2 {
 			wg.Add(1)
 			go func(i int) {
+				defer handlePanicIfErrc(panc)
 				defer wg.Done()
 				merge2(outc, chans[i], chans[i+1])
 			}(i)
@@ -41,6 +50,7 @@ func Merge[T any](capacity int, chans ...<-chan T) <-chan T {
 		for len(chans)-i >= 1 {
 			wg.Add(1)
 			go func(i int) {
+				defer handlePanicIfErrc(panc)
 				defer wg.Done()
 				for v := range chans[i] {
 					outc <- v

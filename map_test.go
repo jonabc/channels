@@ -44,3 +44,24 @@ func TestMapValues(t *testing.T) {
 	require.Len(t, out, 2)
 	require.Equal(t, out, []bool{false, true})
 }
+
+func TestMapAcceptsOptions(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	errs := make(chan any)
+	defer close(errs)
+
+	out := channels.Map(in,
+		func(i int) (bool, bool) { panic("panic!") },
+		channels.ChannelCapacityOption[channels.MapConfig](5),
+		channels.ErrorChannelOption[channels.MapConfig](errs),
+	)
+
+	require.Equal(t, 5, cap(out))
+
+	in <- 1
+	require.Equal(t, "panic!", <-errs)
+}

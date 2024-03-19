@@ -51,3 +51,24 @@ func TestReduceValues(t *testing.T) {
 	})
 	require.Equal(t, out, 7)
 }
+
+func TestReduceAcceptsOptions(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	errs := make(chan any)
+	defer close(errs)
+
+	out := channels.Reduce(in,
+		func(i int, j int) (int, bool) { panic("panic!") },
+		channels.ChannelCapacityOption[channels.ReduceConfig](5),
+		channels.ErrorChannelOption[channels.ReduceConfig](errs),
+	)
+
+	require.Equal(t, 5, cap(out))
+
+	in <- 1
+	require.Equal(t, "panic!", <-errs)
+}

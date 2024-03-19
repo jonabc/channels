@@ -37,7 +37,7 @@ func TestMerge(t *testing.T) {
 				}(channel, i)
 			}
 
-			merged := channels.Merge(3, chans...)
+			merged := channels.Merge(3, chans)
 			if len(chans) == 1 {
 				require.Equal(t, chans[0], merged)
 			} else {

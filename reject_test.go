@@ -9,13 +9,13 @@ import (
 	"github.com/jonabc/channels"
 )
 
-func TestSelect(t *testing.T) {
+func TestReject(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
 	defer close(in)
 
-	out := channels.Select(in, func(i int) bool { return i%2 == 0 })
+	out := channels.Reject(in, func(i int) bool { return i%2 == 0 })
 	require.Equal(t, cap(in), cap(out))
 
 	in <- 1
@@ -24,10 +24,10 @@ func TestSelect(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	require.Len(t, out, 1)
-	require.Equal(t, <-out, 2)
+	require.Equal(t, <-out, 1)
 }
 
-func TestSelectValues(t *testing.T) {
+func TestRejectValues(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
@@ -36,13 +36,13 @@ func TestSelectValues(t *testing.T) {
 	in <- 2
 	close(in)
 
-	out := channels.SelectValues(in, func(i int) bool { return i%2 == 0 })
+	out := channels.RejectValues(in, func(i int) bool { return i%2 == 0 })
 
 	require.Len(t, out, 1)
-	require.Equal(t, out, []int{2})
+	require.Equal(t, out, []int{1})
 }
 
-func TestSelectAcceptsOptions(t *testing.T) {
+func TestRejectAcceptsOptions(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
@@ -51,10 +51,10 @@ func TestSelectAcceptsOptions(t *testing.T) {
 	errs := make(chan any)
 	defer close(errs)
 
-	out := channels.Select(in,
+	out := channels.Reject(in,
 		func(i int) bool { panic("panic!") },
-		channels.ChannelCapacityOption[channels.SelectConfig](5),
-		channels.ErrorChannelOption[channels.SelectConfig](errs),
+		channels.ChannelCapacityOption[channels.RejectConfig](5),
+		channels.ErrorChannelOption[channels.RejectConfig](errs),
 	)
 
 	require.Equal(t, 5, cap(out))

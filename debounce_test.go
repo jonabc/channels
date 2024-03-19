@@ -79,7 +79,7 @@ func (d *customDebouncingType) Reduce(other *customDebouncingType) (*customDebou
 	return d, true
 }
 
-func TestDebounceKeyed(t *testing.T) {
+func TestDebounceCustom(t *testing.T) {
 	t.Parallel()
 
 	inc := make(chan *customDebouncingType, 100)
@@ -124,4 +124,38 @@ func TestDebounceKeyed(t *testing.T) {
 	require.Equal(t, 1, getDebouncedCount())
 	require.Equal(t, &customDebouncingType{key: "3", value: "val1", delay: delay}, <-outc)
 	require.GreaterOrEqual(t, time.Since(start), delay+(4*time.Millisecond))
+}
+
+func TestDebounceAcceptsOptions(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	errs := make(chan any)
+	defer close(errs)
+
+	out, _ := channels.Debounce(in, 2*time.Millisecond,
+		channels.ChannelCapacityOption[channels.DebounceConfig](5),
+		channels.ErrorChannelOption[channels.DebounceConfig](errs),
+	)
+
+	require.Equal(t, 5, cap(out))
+}
+
+func TestDebounceCustomAcceptsOptions(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *customDebouncingType, 100)
+	defer close(in)
+
+	errs := make(chan any)
+	defer close(errs)
+
+	out, _ := channels.DebounceCustom(in,
+		channels.ChannelCapacityOption[channels.DebounceConfig](5),
+		channels.ErrorChannelOption[channels.DebounceConfig](errs),
+	)
+
+	require.Equal(t, 5, cap(out))
 }

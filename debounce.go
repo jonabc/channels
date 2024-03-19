@@ -5,6 +5,18 @@ import (
 	"time"
 )
 
+// DebounceConfig contains user configurable options for the Debounce functions
+type DebounceConfig struct {
+	panc     chan<- any
+	capacity int
+}
+
+func defaultDebounceOptions[T any](inc <-chan T) []Option[DebounceConfig] {
+	return []Option[DebounceConfig]{
+		ChannelCapacityOption[DebounceConfig](cap(inc)),
+	}
+}
+
 type Keyable[K comparable] interface {
 	Key() K
 }
@@ -44,19 +56,24 @@ func (i *debounceInputComparable[T]) Reduce(*debounceInputComparable[T]) (*debou
 
 // Debounce also returns a function which returns the number of debounced values
 // that are currently being delayed
-func Debounce[T comparable](inc <-chan T, delay time.Duration) (<-chan T, func() int) {
-	outc := make(chan T, cap(inc))
+func Debounce[T comparable](inc <-chan T, delay time.Duration, opts ...Option[DebounceConfig]) (<-chan T, func() int) {
+	cfg := parseOpts(append(defaultDebounceOptions(inc), opts...)...)
+
+	outc := make(chan T, cfg.capacity)
+	panc := cfg.panc
 
 	inBridge := make(chan *debounceInputComparable[T])
 	go func() {
+		defer handlePanicIfErrc(panc)
 		defer close(inBridge)
 		for in := range inc {
 			inBridge <- &debounceInputComparable[T]{val: in, delay: delay}
 		}
 	}()
 
-	outBridge, getDebouncedCount := DebounceCustom[T, *debounceInputComparable[T]](inBridge)
+	outBridge, getDebouncedCount := DebounceCustom(inBridge, ErrorChannelOption[DebounceConfig](panc))
 	go func() {
+		defer handlePanicIfErrc(panc)
 		defer close(outc)
 		for out := range outBridge {
 			outc <- out.val
@@ -78,9 +95,12 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration) (<-chan T, func()
 
 // DebounceCustom also returns a function which returns the number of debounced values
 // that are currently being delayed
-func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) (<-chan T, func() int) {
-	outc := make(chan T, cap(inc))
+func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T, opts ...Option[DebounceConfig]) (<-chan T, func() int) {
+	cfg := parseOpts(append(defaultDebounceOptions(inc), opts...)...)
+
+	outc := make(chan T, cfg.capacity)
 	done := make(chan struct{})
+	panc := cfg.panc
 
 	// the buffer stores a map of key value pairs of
 	// items from the input channel currently being debounced
@@ -90,10 +110,11 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) (<-chan T
 	}
 
 	go func() {
+		defer handlePanicIfErrc(panc)
 		defer close(outc)
 
 		for next := range inc {
-			buffer.process(next, func(t T) {
+			buffer.process(next, panc, func(t T) {
 				outc <- t
 			})
 		}
@@ -114,7 +135,7 @@ type debounceBuffer[K comparable, T DebounceInput[K, T]] struct {
 	done <-chan struct{}
 }
 
-func (buffer *debounceBuffer[K, T]) process(item T, onDebounce func(T)) {
+func (buffer *debounceBuffer[K, T]) process(item T, panc chan<- any, onDebounce func(T)) {
 	buffer.Lock()
 	defer buffer.Unlock()
 
@@ -133,6 +154,7 @@ func (buffer *debounceBuffer[K, T]) process(item T, onDebounce func(T)) {
 	buffer.wg.Add(1)
 	delay := item.Delay()
 	go func(key K, delay time.Duration) {
+		defer handlePanicIfErrc(panc)
 		defer buffer.wg.Done()
 
 		// call onDebounce after the specified delay

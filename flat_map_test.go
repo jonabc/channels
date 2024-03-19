@@ -46,3 +46,24 @@ func TestFlatMapValues(t *testing.T) {
 	require.Len(t, out, 4)
 	require.Equal(t, out, []int{10, 11, 20, 21})
 }
+
+func TestFlatMapAcceptsOptions(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	errs := make(chan any)
+	defer close(errs)
+
+	out := channels.FlatMap(in,
+		func(i int) ([]bool, bool) { panic("panic!") },
+		channels.ChannelCapacityOption[channels.FlatMapConfig](5),
+		channels.ErrorChannelOption[channels.FlatMapConfig](errs),
+	)
+
+	require.Equal(t, 5, cap(out))
+
+	in <- 1
+	require.Equal(t, "panic!", <-errs)
+}
