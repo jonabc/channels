@@ -2,6 +2,21 @@ package channels
 
 import "sync"
 
+type SplitConfig struct {
+	panc       chan<- any
+	capacities []int
+}
+
+func defaultSplitOptions[T any](inc <-chan T, count int) []Option[SplitConfig] {
+	capacities := make([]int, count)
+	for i := 0; i < count; i++ {
+		capacities[i] = cap(inc)
+	}
+	return []Option[SplitConfig]{
+		MultiChannelCapacitiesOption[SplitConfig](capacities),
+	}
+}
+
 // Split reads values from the input channel and routes the values into `N`
 // output channels using the provided `splitFn`.  The channel slice provided
 // to `splitFn` will have the same length and order as the channel slice
@@ -10,16 +25,21 @@ import "sync"
 
 // Each output channel will have the same capacity as the input channel and
 // will be closed after the input channel is closed and emptied.
-func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T)) []<-chan T {
+func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T), opts ...Option[SplitConfig]) []<-chan T {
+	cfg := parseOpts(append(defaultSplitOptions(inc, count), opts...)...)
+
 	writeOutc := make([]chan<- T, count)
 	readOutc := make([]<-chan T, count)
+	panc := cfg.panc
+
 	for i := 0; i < count; i++ {
-		c := make(chan T, cap(inc))
+		c := make(chan T, cfg.capacities[i])
 		writeOutc[i] = c
 		readOutc[i] = c
 	}
 
 	go func() {
+		defer handlePanicIfErrc(panc)
 		defer func() {
 			for _, c := range writeOutc {
 				close(c)
@@ -41,8 +61,8 @@ func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T)) []<-chan
 //     provided to `splitFn`
 //   - The second dimension, `j` in `[i][j]T` matches the size and order of values
 //     written to `chans[i]` in `splitFn`
-func SplitValues[T any](inc <-chan T, count int, splitFn func(T, []chan<- T)) [][]T {
-	outc := Split(inc, count, splitFn)
+func SplitValues[T any](inc <-chan T, count int, splitFn func(T, []chan<- T), opts ...Option[SplitConfig]) [][]T {
+	outc := Split(inc, count, splitFn, opts...)
 	results := make([][]T, count)
 
 	var wg sync.WaitGroup
@@ -51,6 +71,7 @@ func SplitValues[T any](inc <-chan T, count int, splitFn func(T, []chan<- T)) []
 	for i := 0; i < count; i++ {
 		go func(i int) {
 			defer wg.Done()
+
 			results[i] = make([]T, 0)
 			for result := range outc[i] {
 				results[i] = append(results[i], result)
@@ -64,14 +85,14 @@ func SplitValues[T any](inc <-chan T, count int, splitFn func(T, []chan<- T)) []
 
 // Helper function that wraps Split, returning two output channels.
 // See Split for additional details.
-func Split2[T any](inc <-chan T, splitFn func(T, []chan<- T)) (<-chan T, <-chan T) {
-	c := Split(inc, 2, splitFn)
+func Split2[T any](inc <-chan T, splitFn func(T, []chan<- T), opts ...Option[SplitConfig]) (<-chan T, <-chan T) {
+	c := Split(inc, 2, splitFn, opts...)
 	return c[0], c[1]
 }
 
 // Helper function that wraps Split, returning three output channels.
 // See Split for additional details.
-func Split3[T any](inc <-chan T, splitFn func(T, []chan<- T)) (<-chan T, <-chan T, <-chan T) {
-	c := Split(inc, 3, splitFn)
+func Split3[T any](inc <-chan T, splitFn func(T, []chan<- T), opts ...Option[SplitConfig]) (<-chan T, <-chan T, <-chan T) {
+	c := Split(inc, 3, splitFn, opts...)
 	return c[0], c[1], c[2]
 }

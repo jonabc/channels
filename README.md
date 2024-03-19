@@ -4,7 +4,9 @@ Some utilities for working with channels.
 
 While this library is useful for creating chained operations into a pipeline, it is intended to be lightweight. Pipeline orchestration, error handling, logging, and metrics tracking should be implemented by callers.
 
-## Batch
+## Functions
+
+### Batch
 
 ```go
 // signature
@@ -24,7 +26,7 @@ results := <- outc
 
 Batch N values from the input channel into an array of N values in the output channel.  The output channel will have capacity $`cap(input channel) / batchSize`$.  The output channel is closed once the input channel is closed and a partial batch is sent to the output channel, if a partial batch exists.
 
-## BatchValues (Blocking)
+### BatchValues (Blocking)
 
 ```go
 // signature
@@ -44,7 +46,7 @@ results := BatchValues(inc, 2)
 
 Like Batch, but blocks until the input channel is closed and all values are read.  BatchValue reads all values from the input channel and returns an array of batches.
 
-## Debounce
+### Debounce
 
 ```go
 // signature
@@ -79,7 +81,7 @@ Debounce also returns a function which returns the number of debounced values th
 
 For more complicated use cases, see [DebounceCustom](./#debouncecustom) below
 
-## DebounceCustom
+### DebounceCustom
 
 ```go
 // signature
@@ -155,7 +157,7 @@ The channel returned by DebounceCustom has the same capacity as the input channe
 
 DebounceCustom also returns a function which returns the number of debounced values that are currently being delayed.
 
-## FlatMap
+### FlatMap
 
 ```go
 // signature
@@ -182,7 +184,7 @@ FlatMap reads values from the input channel and applies the provided `mapFn` to 
 
 The output channel will have the same capacity as the input channel, and is closed once the input channel is closed and all mapped values are pushed to the output channel.
 
-## FlatMapValues (Blocking)
+### FlatMapValues (Blocking)
 
 ```go
 // signature
@@ -203,7 +205,7 @@ results := FlatMapValues(inc, func(i int) ([]int, bool) { return []int{i*10,i*10
 
 Like FlatMap, but blocks until the input channel is closed and all values are read.  FlatMapValues reads all values from the input channel and returns a flattened array of values returned from passing each input value into `mapFn`.
 
-## Map
+### Map
 
 ```go
 // signature
@@ -212,7 +214,7 @@ func Map[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) (TOut, bool)) <- cha
 // usage
 inc := make(chan int)
 // map integers to a boolean indicating if the values are odd (false) or even (true)
-outc := Map(inc, func(i int) (bool, bool) { return i%2 == 0, i < 3> })
+outc := Map(inc, func(i int) (bool, bool) { return i%2 == 0, i < 3 })
 
 inc <- 1
 inc <- 2
@@ -228,7 +230,7 @@ for result := range outc {
 
 Map reads values from the input channel and applies the provided `mapFn` to each value before pushing it to the output channel.  The output channel will have the same capacity as the input channel.  The output channel is closed once the input channel is closed and all mapped values pushed to the output channel.  The type of the output channel does not need to match the type of the input channel.
 
-## MapValues (Blocking)
+### MapValues (Blocking)
 
 ```go
 // signature
@@ -249,7 +251,7 @@ results := Map(inc, func(i int) (bool, bool) { return i%2 == 0, i < 3 })
 
 Like Map, but blocks until the input channel is closed and all values are read.  MapsValues reads all values from the input channel and returns an array of values returned from passing each input value into `mapFn`.
 
-## Merge
+### Merge
 
 ```go
 // signature
@@ -288,7 +290,7 @@ wg.Wait()
 
 Merge merges multiple input channels into a single output channel.  The order of values in the output channel is not guaranteed to match the order that values are written to the input channels.  The output channel has `capacity` capacity and is closed when all input channels are closed.
 
-## Reduce
+### Reduce
 
 ```go
 // signature
@@ -327,7 +329,7 @@ Reduce reads values from the input channel and applies the provided `reduceFn` t
 
 The output of each call to the reducer function is pushed to the output channel.
 
-## ReduceValues (Blocking)
+### ReduceValues (Blocking)
 
 ```go
 // signature
@@ -346,7 +348,7 @@ results := ReduceValues(inc, func(accum []string, i int) bool { return append(ac
 
 Like Reduce, but blocks until the input channel is closed and all values are read.  ReduceValues reads all values from the input channel and returns the value returned after all values from the input channel have been passed into `reduceFn`.
 
-## Reject
+### Reject
 
 ```go
 // signature
@@ -370,7 +372,7 @@ for result := range outc {
 
 Selects values from the input channel that return false from the provided `rejectFn` and pushes them to the output channel.  The output channel will have the same capacity as the input channel.  The output channel is closed once the input channel is closed and all selected values pushed to the output channel.
 
-## RejectValues (Blocking)
+### RejectValues (Blocking)
 
 ```go
 // signature
@@ -415,7 +417,7 @@ for result := range outc {
 Selects values from the input channel that return true from the provided `selectFn` and pushes them to the output channel.  The output channel will have the same capacity as the input channel.  The output channel is closed once the input channel is closed and all selected values pushed to the output channel.
 
 
-## SelectValues (Blocking)
+### SelectValues (Blocking)
 
 ```go
 // signature
@@ -435,7 +437,7 @@ result := SelectValues(inc, func(i int) bool { return i%2 == 0 })
 
 Like Select, but blocks until the input channel is closed and all values are read.  SelectValues reads all values from the input channel and returns an array values that return true from the provided `selectFn` function.
 
-## Split
+### Split
 
 ```go
 // signature
@@ -470,7 +472,7 @@ Split reads values from the input channel and routes the values into `N` output 
 
 Each output channel will have the same capacity as the input channel and will be closed after the input channel is closed and emptied.
 
-## SplitValues (Blocking)
+### SplitValues (Blocking)
 
 ```go
 // signature
@@ -496,7 +498,7 @@ Like Split, but blocks until the input channel is closed and all values are read
 - The first dimension, `i` in `[i][j]T` matches the size and order of channels provided to `splitFn`
 - The second dimension, `j` in `[i][j]T` matches the size and order of values written to `chans[i]` in `splitFn`
 
-## Tap
+### Tap
 
 ```go
 // signature
@@ -521,7 +523,7 @@ for result := range outc {
 
 Tap reads values from the input channel and calls the provided `[pre/post]Fn` functions with each value before and after writing the value to the output channel, respectivel.  The output channel has the same capacity as the input channel, and will be closed after the input channel is closed and drained.
 
-## WithDone
+### WithDone
 
 ```go
 // signature
@@ -552,3 +554,72 @@ close(inc)
 WithDone returns two channels: a channel containing piped input from the input channel as well and a channel which will be closed when the input channel has been closed and all values written to the piped output channel.
 
 WithDone is meant to be used in situations where a component needs awareness of the lifetime of a channel but interacting with the channel directly is not desirable.  In the example above, the `done` channel is used in a goroutine to report the current length of the channel at a regular interval.
+
+## Options
+
+###  Specifying output channel capacity (single channel output)
+
+Functions returning a single output channel set a capacity calculated from the input channel; see each function description for default output channel capacities.  The output channel capacity can be overridden by passing `channels.ChannelCapacityOption` to the function.
+
+```go
+// signature
+channels.ChannelCapacityOption[T singleOutputConfiguration](capacity int)
+
+// usage
+inc := make(chan int, 10)
+defer close(inc)
+
+// map integers to a boolean indicating if the values are odd (false) or even (true)
+outc := Map(inc, 
+  func(i int) (bool, bool) { return i%2 == 0, i < 3 },
+  channels.ChannelCapacityOption[channels.MapConfig](1),
+)
+
+// cap(outc) == 1
+```
+
+### Specifying output channels' capacities (multi channel output)
+
+Functions returning multiple output channels set capacities onto the channels calculated from the input channel; see each function description for default output channel capacities.  The output channel capacities can be overridden by passing `channels.ChannelCapacityOption` to the function.
+
+```go
+// signature
+channels.MultiChannelCapacitiesOption[T multiOutputConfiguration](capacities []int)
+
+// usage
+inc := make(chan int, 10)
+defer close(inc)
+
+outcs := Split(inc, 2,
+  func(i int, chans []chan<- int) { chans[i%2] <- i },
+  channels.MultiChannelCapacitiesOption[channels.SplitConfig]([]int{3,4}),
+)
+
+// cap(outcs[0]) == 3
+// cap(outcs[0]) == 4
+```
+
+### Specifying a channel for panic reporting
+
+Most of the behavior in this package happens in goroutines, and a panic can cause an application to crash without triggering any configured logging or graceful error handling behaviors.  Panics can be captured and proxied to callers by passing `channels.ErrorChannelOption` to the function.
+
+```go
+// signature
+channels.ErrorChannelOption[T errorConfiguration](chan<- any)
+
+// usage
+inc := make(chan int, 10)
+defer close(inc)
+
+errs := make(chan error)
+defer close(errs)
+
+// map integers to a boolean indicating if the values are odd (false) or even (true)
+outc := Map(inc, 
+  func(i int) (bool, bool) { panic("oops") },
+  channels.ErrorChannelOption[channels.MapConfig](errs),
+)
+
+inc <- 1
+// "oops" == <- errs 
+```

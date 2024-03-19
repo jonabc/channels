@@ -108,3 +108,28 @@ func TestSplit3(t *testing.T) {
 	require.Equal(t, 3, <-zeros)
 	require.Equal(t, 4, <-ones)
 }
+
+func TestSplitAcceptsOptions(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 10)
+	defer close(in)
+
+	errs := make(chan any)
+	defer close(errs)
+
+	outArray := channels.Split(in,
+		2,
+		func(i int, c []chan<- int) {
+			panic("panic!")
+		},
+		channels.ErrorChannelOption[channels.SplitConfig](errs),
+		channels.MultiChannelCapacitiesOption[channels.SplitConfig]([]int{2, 5}),
+	)
+
+	require.Equal(t, 2, cap(outArray[0]))
+	require.Equal(t, 5, cap(outArray[1]))
+
+	in <- 1
+	require.Equal(t, "panic!", <-errs)
+}
