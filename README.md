@@ -157,6 +157,25 @@ The channel returned by DebounceCustom has the same capacity as the input channe
 
 DebounceCustom also returns a function which returns the number of debounced values that are currently being delayed.
 
+### Drain (Blocking)
+
+```go
+// signature
+func Drain[T any](inc <-chan TIn, maxWait time.Duration) bool
+
+// usage
+inc := make(chan int)
+inc <- 1
+inc <- 2
+inc <- 3
+close(inc)
+
+drained := channels.Drain(inc, 10 * time.Millisecond)
+// drained == true
+```
+
+Drain blocks until either the input channel is fully drained and closed or `maxWait` duration has passed.  Drain returns true when exiting due to the input channel being drained and closed, false when exiting due to waiting for the `maxWait` duration.  When `maxWait <= 0`, Drain will wait forever, and only exit when the input channel is closed.
+
 ### FlatMap
 
 ```go
