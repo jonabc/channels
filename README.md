@@ -629,7 +629,7 @@ outcs := Split(inc, 2,
 // cap(outcs[0]) == 4
 ```
 
-### Specifying an provider for panic reporting
+### Specifying a provider for panic reporting
 
 Most of the behavior in this package happens in goroutines, and a panic can cause an application to crash without triggering any configured logging or graceful error handling behaviors.  Panics can be captured and proxied to callers by creating an `providers.Provider[any]` and passing it to the function via `channels.PanicProviderOption`.
 
@@ -653,3 +653,40 @@ outc := Map(inc,
 inc <- 1
 // "oops" == <- panicReceiver.Channel()
 ```
+
+### Specifying a provider for stats reporting
+
+Most channel functions take an options argument that allows callers to receive information about the channel function's operations over time.  While it is possible to manually observe most channel operations using `channels.Tap` to observe items moving through a channel pipeline, using providers to report on stats provides a couple of additional benefits:
+1. If needed, providers can be closed to stop stats reporting without otherwise affecting a channel's operations.
+2. Using the collecting provider provides a fully asynchronous way to gather statistics about a channel operation, in case reporting stats would otherwise affect channel throughput.
+
+```go
+inc := make(chan int, 10)
+defer close(inc)
+
+statsProvider, statsReceiver := providers.NewCollectingProvider[Stats](0)
+defer statsProvider.Close()
+
+go func() {
+  for stats := range statsReceiver.Channel() {
+    for i, stat := range stats {
+      // report on stat.Duration to an observability tool
+    }
+  }
+}()
+
+out := channels.Map(in, 
+  func(i int) (bool, bool) {return i%2==0, true},
+  channels.StatsProviderOption[channels.MapConfig](statsProvider),
+)
+
+// ...
+```
+
+#### Choosing a provider for reporting statistics
+
+If you need high fidelity in statistics reporting, `providers.NewCollectingProvider` will gather statistics in memory when the receiving channel is blocked.  When the receiving channel is unblocked, the next read will contain all statistics collected in memory while the channel was blocked.
+
+If you do not need high fidelity reporting and want to optimize for CPU and memory usage, `providers.NewDroppingProvider` will drop any provided statistics whenever the receiving channel is blocked.
+
+**Warning**  It's generally recommended to not using the blocking provider `providers.NewProvider` to receive channel statistics, as this provider will block a channel operation until the receiving channel can be written to.

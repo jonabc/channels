@@ -160,3 +160,36 @@ func TestDebounceCustomAcceptsOptions(t *testing.T) {
 
 	require.Equal(t, 5, cap(out))
 }
+
+func TestDebounceProviderOptionWithStatsReporting(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *customDebouncingType, 100)
+	defer close(in)
+
+	provider, receiver := providers.NewCollectingProvider[channels.DebounceStats](0)
+	defer provider.Close()
+
+	out, _ := channels.DebounceCustom(in,
+		channels.DebounceStatsProviderOption(provider),
+	)
+
+	in <- &customDebouncingType{key: "1", value: "1", delay: 5 * time.Millisecond}
+	in <- &customDebouncingType{key: "1", value: "2", delay: 5 * time.Millisecond}
+	<-out
+
+	stats, ok := <-receiver.Channel()
+	require.True(t, ok)
+	require.Len(t, stats, 1)
+	require.Greater(t, stats[0].Delay, 5*time.Millisecond)
+	require.Equal(t, uint(2), stats[0].Count)
+
+	in <- &customDebouncingType{key: "1", value: "1", delay: 2 * time.Millisecond}
+	<-out
+
+	stats, ok = <-receiver.Channel()
+	require.True(t, ok)
+	require.Len(t, stats, 1)
+	require.GreaterOrEqual(t, stats[0].Delay, 2*time.Millisecond)
+	require.Equal(t, uint(1), stats[0].Count)
+}

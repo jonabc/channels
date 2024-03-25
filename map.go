@@ -1,11 +1,14 @@
 package channels
 
 import (
+	"time"
+
 	"github.com/jonabc/channels/providers"
 )
 
 type MapConfig struct {
 	panicProvider providers.Provider[any]
+	statsProvider providers.Provider[Stats]
 	capacity      int
 }
 
@@ -26,17 +29,21 @@ func Map[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) (TOut, bool), opts .
 
 	outc := make(chan TOut, cfg.capacity)
 	panicProvider := cfg.panicProvider
+	statsProvider := cfg.statsProvider
 
 	go func() {
 		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
 		for in := range inc {
+			start := time.Now()
 			val, ok := mapFn(in)
-			if !ok {
-				continue
+			duration := time.Since(start)
+			if ok {
+				outc <- val
 			}
-			outc <- val
+
+			tryProvideStats(Stats{Duration: duration}, statsProvider)
 		}
 	}()
 

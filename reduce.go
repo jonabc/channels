@@ -1,11 +1,14 @@
 package channels
 
 import (
+	"time"
+
 	"github.com/jonabc/channels/providers"
 )
 
 type ReduceConfig struct {
 	panicProvider providers.Provider[any]
+	statsProvider providers.Provider[Stats]
 	capacity      int
 }
 
@@ -26,6 +29,7 @@ func Reduce[TIn any, TOut any](inc <-chan TIn, reduceFn func(TOut, TIn) (TOut, b
 
 	outc := make(chan TOut, cfg.capacity)
 	panicProvider := cfg.panicProvider
+	statsProvider := cfg.statsProvider
 
 	go func() {
 		defer tryHandlePanic(panicProvider)
@@ -33,12 +37,16 @@ func Reduce[TIn any, TOut any](inc <-chan TIn, reduceFn func(TOut, TIn) (TOut, b
 
 		var result TOut
 		for in := range inc {
+			start := time.Now()
 			next, ok := reduceFn(result, in)
-			if !ok {
-				continue
+			duration := time.Since(start)
+
+			if ok {
+				result = next
+				outc <- result
 			}
-			result = next
-			outc <- result
+
+			tryProvideStats(Stats{Duration: duration}, statsProvider)
 		}
 	}()
 

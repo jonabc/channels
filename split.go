@@ -2,12 +2,14 @@ package channels
 
 import (
 	"sync"
+	"time"
 
 	"github.com/jonabc/channels/providers"
 )
 
 type SplitConfig struct {
 	panicProvider providers.Provider[any]
+	statsProvider providers.Provider[Stats]
 	capacities    []int
 }
 
@@ -35,6 +37,7 @@ func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T), opts ...
 	writeOutc := make([]chan<- T, count)
 	readOutc := make([]<-chan T, count)
 	panicProvider := cfg.panicProvider
+	statsProvider := cfg.statsProvider
 
 	for i := 0; i < count; i++ {
 		c := make(chan T, cfg.capacities[i])
@@ -51,7 +54,10 @@ func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T), opts ...
 		}()
 
 		for in := range inc {
+			start := time.Now()
 			splitFn(in, writeOutc)
+			duration := time.Since(start)
+			tryProvideStats(Stats{Duration: duration}, statsProvider)
 		}
 	}()
 

@@ -4,11 +4,13 @@ import (
 	"time"
 
 	internalTime "github.com/jonabc/channels/internal/time"
+	"github.com/jonabc/channels/providers"
 )
 
 // BatchConfig contains user configurable options for the Batch functions
 type BatchConfig struct {
 	panicProvider providers.Provider[any]
+	statsProvider providers.Provider[BatchStats]
 	capacity      int
 }
 
@@ -27,10 +29,14 @@ func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration, opts ...O
 
 	outc := make(chan []T, cfg.capacity)
 	panicProvider := cfg.panicProvider
+	statsProvider := cfg.statsProvider
+
 	buffer := make([]T, 0, batchSize)
 
 	timer := internalTime.NewTimer(maxDelay)
 	timer.Stop()
+
+	var batchStart time.Time
 
 	publishAndReset := func() {
 		timer.Stop()
@@ -38,10 +44,14 @@ func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration, opts ...O
 			return
 		}
 
-		keys := make([]T, len(buffer))
+		duration := time.Since(batchStart)
+		batchSize := len(buffer)
+
+		keys := make([]T, batchSize)
 		copy(keys, buffer)
 		outc <- keys
 		buffer = buffer[:0]
+		tryProvideStats(BatchStats{Duration: duration, BatchSize: uint(batchSize)}, statsProvider)
 	}
 
 	go func() {
@@ -59,6 +69,7 @@ func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration, opts ...O
 
 				if len(buffer) == 0 {
 					timer.Reset(maxDelay)
+					batchStart = time.Now()
 				}
 
 				buffer = append(buffer, in)
