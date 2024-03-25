@@ -4,6 +4,17 @@ Some utilities for working with channels.
 
 While this library is useful for creating chained operations into a pipeline, it is intended to be lightweight. Pipeline orchestration, error handling, logging, and metrics tracking should be implemented by callers.
 
+## Types
+
+### Provider[T any] and Receiver[T any]
+
+Providers and receivers wrap channels to provide a few quality of life benefits.
+1. Writing to the provider while it is closing or after it is closed will not produce a panic
+2. A provider can be configured for different behaviors on calling `Provide`
+   - `providers.NewProvider` matches the underlying channel behavior, blocking when the receiving channel blocks
+   - `providers.NewDroppingProvider` drops provided values when the receiving channel blocks
+   - `providers.NewCollectingProvider` collects observed values while the underlying channel blocks.  When the receiving channel is unblocked all values are written to the receiver as a slice.
+
 ## Functions
 
 ### Batch
@@ -411,7 +422,7 @@ result := RejectValues(inc, func(i int) bool { return i%2 == 0 })
 
 Like Reject, but blocks until the input channel is closed and all values are read.  RejectValues reads all values from the input channel and returns an array of values that return false from the provided `rejectFn` function.
 
-## Select
+### Select
 
 ```go
 // signature
@@ -618,27 +629,27 @@ outcs := Split(inc, 2,
 // cap(outcs[0]) == 4
 ```
 
-### Specifying a channel for panic reporting
+### Specifying an provider for panic reporting
 
-Most of the behavior in this package happens in goroutines, and a panic can cause an application to crash without triggering any configured logging or graceful error handling behaviors.  Panics can be captured and proxied to callers by passing `channels.ErrorChannelOption` to the function.
+Most of the behavior in this package happens in goroutines, and a panic can cause an application to crash without triggering any configured logging or graceful error handling behaviors.  Panics can be captured and proxied to callers by creating an `providers.Provider[any]` and passing it to the function via `channels.PanicProviderOption`.
 
 ```go
 // signature
-channels.ErrorChannelOption[T errorConfiguration](chan<- any)
+channels.PanicProviderOption[T channelConfiguration](providers.Provider[any]) Option[T]
 
 // usage
 inc := make(chan int, 10)
 defer close(inc)
 
-errs := make(chan error)
-defer close(errs)
+panicProvider, panicReceiver := providers.NewProvider[any](0)
+defer panicProvider.Close()
 
 // map integers to a boolean indicating if the values are odd (false) or even (true)
 outc := Map(inc, 
   func(i int) (bool, bool) { panic("oops") },
-  channels.ErrorChannelOption[channels.MapConfig](errs),
+  channels.PanicProviderOption[channels.MapConfig](panicProvider),
 )
 
 inc <- 1
-// "oops" == <- errs 
+// "oops" == <- panicReceiver.Channel()
 ```
