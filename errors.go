@@ -1,13 +1,14 @@
 package channels
 
-func handlePanicIfErrc(panc chan<- any) {
-	// don't handle the panic if a panic channel isn't provided
-	// is not provided
-	if panc == nil {
+import "github.com/jonabc/channels/providers"
+
+func tryHandlePanic(provider providers.Provider[any]) {
+	// don't handle the panic if a panic provider isn't provided
+	if provider == nil {
 		return
 	}
 
 	if err := recover(); err != nil {
-		panc <- err
+		provider.Provide(err)
 	}
 }

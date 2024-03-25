@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jonabc/channels"
+	"github.com/jonabc/channels/providers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,23 +46,34 @@ func TestMapValues(t *testing.T) {
 	require.Equal(t, out, []bool{false, true})
 }
 
-func TestMapAcceptsOptions(t *testing.T) {
+func TestMapChannelCapacityOption(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
 	defer close(in)
 
-	errs := make(chan any)
-	defer close(errs)
-
 	out := channels.Map(in,
-		func(i int) (bool, bool) { panic("panic!") },
+		func(i int) (bool, bool) { return i%2 == 0, i < 3 },
 		channels.ChannelCapacityOption[channels.MapConfig](5),
-		channels.ErrorChannelOption[channels.MapConfig](errs),
 	)
 
 	require.Equal(t, 5, cap(out))
+}
+
+func TestMapProviderOptionWithReportPanics(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	provider, receiver := providers.NewProvider[any](0)
+	defer provider.Close()
+
+	channels.Map(in,
+		func(i int) (bool, bool) { panic("panic!") },
+		channels.PanicProviderOption[channels.MapConfig](provider),
+	)
 
 	in <- 1
-	require.Equal(t, "panic!", <-errs)
+	require.Equal(t, "panic!", <-receiver.Channel())
 }

@@ -91,15 +91,14 @@ func TestDoesNotDrainEmptyBatchOnChannelClose(t *testing.T) {
 	require.Len(t, out, 0)
 }
 
-func TestAcceptsOptions(t *testing.T) {
+func TestBatchChannelCapacityOption(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
-	panc := make(chan any)
+	defer close(in)
 	outCapacity := 1
 
 	out := channels.Batch(in, 5, 0,
-		channels.ErrorChannelOption[channels.BatchConfig](panc),
 		channels.ChannelCapacityOption[channels.BatchConfig](outCapacity),
 	)
 

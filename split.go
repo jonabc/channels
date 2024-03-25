@@ -1,10 +1,14 @@
 package channels
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/jonabc/channels/providers"
+)
 
 type SplitConfig struct {
-	panc       chan<- any
-	capacities []int
+	panicProvider providers.Provider[any]
+	capacities    []int
 }
 
 func defaultSplitOptions[T any](inc <-chan T, count int) []Option[SplitConfig] {
@@ -30,7 +34,7 @@ func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T), opts ...
 
 	writeOutc := make([]chan<- T, count)
 	readOutc := make([]<-chan T, count)
-	panc := cfg.panc
+	panicProvider := cfg.panicProvider
 
 	for i := 0; i < count; i++ {
 		c := make(chan T, cfg.capacities[i])
@@ -39,7 +43,7 @@ func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T), opts ...
 	}
 
 	go func() {
-		defer handlePanicIfErrc(panc)
+		defer tryHandlePanic(panicProvider)
 		defer func() {
 			for _, c := range writeOutc {
 				close(c)

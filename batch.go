@@ -8,8 +8,8 @@ import (
 
 // BatchConfig contains user configurable options for the Batch functions
 type BatchConfig struct {
-	panc     chan<- any
-	capacity int
+	panicProvider providers.Provider[any]
+	capacity      int
 }
 
 func defaultBatchOptions[T any](inc <-chan T, batchSize int) []Option[BatchConfig] {
@@ -26,7 +26,7 @@ func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration, opts ...O
 	cfg := parseOpts(append(defaultBatchOptions(inc, batchSize), opts...)...)
 
 	outc := make(chan []T, cfg.capacity)
-	panc := cfg.panc
+	panicProvider := cfg.panicProvider
 	buffer := make([]T, 0, batchSize)
 
 	timer := internalTime.NewTimer(maxDelay)
@@ -45,7 +45,7 @@ func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration, opts ...O
 	}
 
 	go func() {
-		defer handlePanicIfErrc(panc)
+		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 		defer timer.Stop()
 

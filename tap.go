@@ -1,8 +1,12 @@
 package channels
 
+import (
+	"github.com/jonabc/channels/providers"
+)
+
 type TapConfig struct {
-	panc     chan<- any
-	capacity int
+	panicProvider providers.Provider[any]
+	capacity      int
 }
 
 func defaultTapOptions[T any](inc <-chan T) []Option[TapConfig] {
@@ -20,10 +24,10 @@ func Tap[T any](inc <-chan T, preFn func(T), postFn func(T), opts ...Option[TapC
 	cfg := parseOpts(append(defaultTapOptions(inc), opts...)...)
 
 	outc := make(chan T, cfg.capacity)
-	panc := cfg.panc
+	panicProvider := cfg.panicProvider
 
 	go func() {
-		defer handlePanicIfErrc(panc)
+		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
 		for val := range inc {

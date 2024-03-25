@@ -2,10 +2,12 @@ package channels
 
 import (
 	"sync"
+
+	"github.com/jonabc/channels/providers"
 )
 
 type MergeConfig struct {
-	panc chan<- any
+	panicProvider providers.Provider[any]
 }
 
 // Merge merges multiple input channels into a single output channel.  The
@@ -15,7 +17,7 @@ type MergeConfig struct {
 // channels are closed.
 func Merge[T any](capacity int, chans []<-chan T, opts ...Option[MergeConfig]) <-chan T {
 	cfg := parseOpts(opts...)
-	panc := cfg.panc
+	panicProvider := cfg.panicProvider
 
 	switch len(chans) {
 	case 0:
@@ -30,7 +32,7 @@ func Merge[T any](capacity int, chans []<-chan T, opts ...Option[MergeConfig]) <
 		for len(chans)-i >= 4 {
 			wg.Add(1)
 			go func(i int) {
-				defer handlePanicIfErrc(panc)
+				defer tryHandlePanic(panicProvider)
 				defer wg.Done()
 				merge4(outc, chans[i], chans[i+1], chans[i+2], chans[i+3])
 			}(i)
@@ -40,7 +42,7 @@ func Merge[T any](capacity int, chans []<-chan T, opts ...Option[MergeConfig]) <
 		for len(chans)-i >= 2 {
 			wg.Add(1)
 			go func(i int) {
-				defer handlePanicIfErrc(panc)
+				defer tryHandlePanic(panicProvider)
 				defer wg.Done()
 				merge2(outc, chans[i], chans[i+1])
 			}(i)
@@ -50,7 +52,7 @@ func Merge[T any](capacity int, chans []<-chan T, opts ...Option[MergeConfig]) <
 		for len(chans)-i >= 1 {
 			wg.Add(1)
 			go func(i int) {
-				defer handlePanicIfErrc(panc)
+				defer tryHandlePanic(panicProvider)
 				defer wg.Done()
 				for v := range chans[i] {
 					outc <- v

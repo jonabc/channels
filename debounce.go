@@ -3,12 +3,14 @@ package channels
 import (
 	"sync"
 	"time"
+
+	"github.com/jonabc/channels/providers"
 )
 
 // DebounceConfig contains user configurable options for the Debounce functions
 type DebounceConfig struct {
-	panc     chan<- any
-	capacity int
+	panicProvider providers.Provider[any]
+	capacity      int
 }
 
 func defaultDebounceOptions[T any](inc <-chan T) []Option[DebounceConfig] {
@@ -60,20 +62,19 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration, opts ...Option[De
 	cfg := parseOpts(append(defaultDebounceOptions(inc), opts...)...)
 
 	outc := make(chan T, cfg.capacity)
-	panc := cfg.panc
 
 	inBridge := make(chan *debounceInputComparable[T])
 	go func() {
-		defer handlePanicIfErrc(panc)
 		defer close(inBridge)
 		for in := range inc {
 			inBridge <- &debounceInputComparable[T]{val: in, delay: delay}
 		}
 	}()
 
-	outBridge, getDebouncedCount := DebounceCustom(inBridge, ErrorChannelOption[DebounceConfig](panc))
+	outBridge, getDebouncedCount := DebounceCustom(inBridge,
+		PanicProviderOption[DebounceConfig](cfg.panicProvider),
+	)
 	go func() {
-		defer handlePanicIfErrc(panc)
 		defer close(outc)
 		for out := range outBridge {
 			outc <- out.val
@@ -100,21 +101,22 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T, opts ...O
 
 	outc := make(chan T, cfg.capacity)
 	done := make(chan struct{})
-	panc := cfg.panc
+	panicProvider := cfg.panicProvider
 
 	// the buffer stores a map of key value pairs of
 	// items from the input channel currently being debounced
 	buffer := debounceBuffer[K, T]{
 		data: make(map[K]T),
 		done: done,
+		panicProvider: panicProvider,
 	}
 
 	go func() {
-		defer handlePanicIfErrc(panc)
+		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
 		for next := range inc {
-			buffer.process(next, panc, func(t T) {
+			buffer.process(next, func(t T) {
 				outc <- t
 			})
 		}
@@ -130,12 +132,13 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T, opts ...O
 type debounceBuffer[K comparable, T DebounceInput[K, T]] struct {
 	sync.Mutex
 	data map[K]T
+	panicProvider providers.Provider[any]
 
 	wg   sync.WaitGroup
 	done <-chan struct{}
 }
 
-func (buffer *debounceBuffer[K, T]) process(item T, panc chan<- any, onDebounce func(T)) {
+func (buffer *debounceBuffer[K, T]) process(item T, onDebounce func(T)) {
 	buffer.Lock()
 	defer buffer.Unlock()
 
@@ -154,7 +157,7 @@ func (buffer *debounceBuffer[K, T]) process(item T, panc chan<- any, onDebounce 
 	buffer.wg.Add(1)
 	delay := item.Delay()
 	go func(key K, delay time.Duration) {
-		defer handlePanicIfErrc(panc)
+		defer tryHandlePanic(buffer.panicProvider)
 		defer buffer.wg.Done()
 
 		// call onDebounce after the specified delay
