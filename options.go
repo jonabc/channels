@@ -15,35 +15,29 @@ type channelConfiguration interface {
 
 type Option[T channelConfiguration] func(*T)
 
-type errorConfiguration interface {
-	channelConfiguration
-}
-
-// Specify a channel which should receive the value returned by `recover` if
-// a panic happens, for reporting and/or graceful handling.
-func ErrorChannelOption[T errorConfiguration](panc chan<- any) Option[T] {
+func PanicProviderOption[T channelConfiguration](provider providers.Provider[any]) Option[T] {
 	return func(cfg *T) {
 		switch cfg := any(cfg).(type) {
 		case *BatchConfig:
-			cfg.panc = panc
+			cfg.panicProvider = provider
 		case *DebounceConfig:
-			cfg.panc = panc
+			cfg.panicProvider = provider
 		case *FlatMapConfig:
-			cfg.panc = panc
+			cfg.panicProvider = provider
 		case *MapConfig:
-			cfg.panc = panc
+			cfg.panicProvider = provider
 		case *MergeConfig:
-			cfg.panc = panc
+			cfg.panicProvider = provider
 		case *ReduceConfig:
-			cfg.panc = panc
+			cfg.panicProvider = provider
 		case *RejectConfig:
-			cfg.panc = panc
+			cfg.panicProvider = provider
 		case *SelectConfig:
-			cfg.panc = panc
+			cfg.panicProvider = provider
 		case *SplitConfig:
-			cfg.panc = panc
+			cfg.panicProvider = provider
 		case *TapConfig:
-			cfg.panc = panc
+			cfg.panicProvider = provider
 		}
 	}
 }
@@ -60,7 +54,7 @@ type singleOutputConfiguration interface {
 }
 
 // Specify the capacity for a single output channel returned by a channels function.
-func ChannelCapacityOption[T singleOutputConfiguration](capacity int) func(*T) {
+func ChannelCapacityOption[T singleOutputConfiguration](capacity int) Option[T] {
 	return func(cfg *T) {
 		switch cfg := any(cfg).(type) {
 		case *BatchConfig:
@@ -88,7 +82,7 @@ type multiOutputConfiguration interface {
 }
 
 // Specify the capacities for output channels created from functions which return multiple channels.
-func MultiChannelCapacitiesOption[T multiOutputConfiguration](capacities []int) func(*T) {
+func MultiChannelCapacitiesOption[T multiOutputConfiguration](capacities []int) Option[T] {
 	return func(cfg *T) {
 		switch cfg := any(cfg).(type) {
 		case *SplitConfig:

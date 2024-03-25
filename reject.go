@@ -1,8 +1,12 @@
 package channels
 
+import (
+	"github.com/jonabc/channels/providers"
+)
+
 type RejectConfig struct {
-	panc     chan<- any
-	capacity int
+	panicProvider providers.Provider[any]
+	capacity      int
 }
 
 func defaultRejectOptions[T any](inc <-chan T) []Option[RejectConfig] {
@@ -19,10 +23,10 @@ func Reject[T any](inc <-chan T, rejectFn func(T) bool, opts ...Option[RejectCon
 	cfg := parseOpts(append(defaultRejectOptions(inc), opts...)...)
 
 	outc := make(chan T, cfg.capacity)
-	panc := cfg.panc
+	panicProvider := cfg.panicProvider
 
 	go func() {
-		defer handlePanicIfErrc(panc)
+		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
 		for in := range inc {

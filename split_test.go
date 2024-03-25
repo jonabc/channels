@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jonabc/channels"
+	"github.com/jonabc/channels/providers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -109,27 +110,39 @@ func TestSplit3(t *testing.T) {
 	require.Equal(t, 4, <-ones)
 }
 
-func TestSplitAcceptsOptions(t *testing.T) {
+func TestSplitMultiChannelCapacitiesOption(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 10)
 	defer close(in)
 
-	errs := make(chan any)
-	defer close(errs)
-
 	outArray := channels.Split(in,
 		2,
-		func(i int, c []chan<- int) {
-			panic("panic!")
-		},
-		channels.ErrorChannelOption[channels.SplitConfig](errs),
+		func(i int, chans []chan<- int) { chans[i%2] <- i },
 		channels.MultiChannelCapacitiesOption[channels.SplitConfig]([]int{2, 5}),
 	)
 
 	require.Equal(t, 2, cap(outArray[0]))
 	require.Equal(t, 5, cap(outArray[1]))
+}
+
+func TestSplitProviderOptionWithReportPanics(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	provider, receiver := providers.NewProvider[any](0)
+	defer provider.Close()
+
+	channels.Split(in,
+		2,
+		func(i int, c []chan<- int) { panic("panic!") },
+		channels.PanicProviderOption[channels.SplitConfig](provider),
+	)
 
 	in <- 1
-	require.Equal(t, "panic!", <-errs)
+	require.Equal(t, "panic!", <-receiver.Channel())
+
+	in <- 1
 }

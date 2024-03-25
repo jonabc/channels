@@ -1,8 +1,12 @@
 package channels
 
+import (
+	"github.com/jonabc/channels/providers"
+)
+
 type ReduceConfig struct {
-	capacity int
-	panc     chan<- any
+	panicProvider providers.Provider[any]
+	capacity      int
 }
 
 func defaultReduceOptions[T any](inc <-chan T) []Option[ReduceConfig] {
@@ -21,10 +25,10 @@ func Reduce[TIn any, TOut any](inc <-chan TIn, reduceFn func(TOut, TIn) (TOut, b
 	cfg := parseOpts(append(defaultReduceOptions(inc), opts...)...)
 
 	outc := make(chan TOut, cfg.capacity)
-	panc := cfg.panc
+	panicProvider := cfg.panicProvider
 
 	go func() {
-		defer handlePanicIfErrc(panc)
+		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
 		var result TOut

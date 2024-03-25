@@ -1,8 +1,12 @@
 package channels
 
+import (
+	"github.com/jonabc/channels/providers"
+)
+
 type SelectConfig struct {
-	panc     chan<- any
-	capacity int
+	panicProvider providers.Provider[any]
+	capacity      int
 }
 
 func defaultSelectOptions[T any](inc <-chan T) []Option[SelectConfig] {
@@ -19,10 +23,10 @@ func Select[T any](inc <-chan T, selectFn func(T) bool, opts ...Option[SelectCon
 	cfg := parseOpts(append(defaultSelectOptions(inc), opts...)...)
 
 	outc := make(chan T, cfg.capacity)
-	panc := cfg.panc
+	panicProvider := cfg.panicProvider
 
 	go func() {
-		defer handlePanicIfErrc(panc)
+		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
 		for in := range inc {

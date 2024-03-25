@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jonabc/channels"
+	"github.com/jonabc/channels/providers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,18 +42,30 @@ func TestTapAcceptsOptions(t *testing.T) {
 	in := make(chan int, 10)
 	defer close(in)
 
-	errs := make(chan any)
-	defer close(errs)
-
 	out := channels.Tap(in,
-		func(i int) { panic("panic!") },
 		nil,
-		channels.ErrorChannelOption[channels.TapConfig](errs),
+		nil,
 		channels.ChannelCapacityOption[channels.TapConfig](1),
 	)
 
 	require.Equal(t, 1, cap(out))
+}
+
+func TestTapProviderOptionWithReportPanics(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	provider, receiver := providers.NewProvider[any](0)
+	defer provider.Close()
+
+	channels.Tap(in,
+		func(i int) { panic("panic!") },
+		nil,
+		channels.PanicProviderOption[channels.TapConfig](provider),
+	)
 
 	in <- 1
-	require.Equal(t, "panic!", <-errs)
+	require.Equal(t, "panic!", <-receiver.Channel())
 }

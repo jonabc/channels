@@ -1,8 +1,12 @@
 package channels
 
+import (
+	"github.com/jonabc/channels/providers"
+)
+
 type MapConfig struct {
-	panc     chan<- any
-	capacity int
+	panicProvider providers.Provider[any]
+	capacity      int
 }
 
 func defaultMapOptions[T any](inc <-chan T) []Option[MapConfig] {
@@ -21,10 +25,10 @@ func Map[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) (TOut, bool), opts .
 	cfg := parseOpts(append(defaultMapOptions(inc), opts...)...)
 
 	outc := make(chan TOut, cfg.capacity)
-	panc := cfg.panc
+	panicProvider := cfg.panicProvider
 
 	go func() {
-		defer handlePanicIfErrc(panc)
+		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
 		for in := range inc {

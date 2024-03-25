@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/jonabc/channels"
+	"github.com/jonabc/channels/providers"
 )
 
 func TestReject(t *testing.T) {
@@ -42,23 +43,34 @@ func TestRejectValues(t *testing.T) {
 	require.Equal(t, out, []int{1})
 }
 
-func TestRejectAcceptsOptions(t *testing.T) {
+func TestRejectChannelCapacityOption(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
 	defer close(in)
 
-	errs := make(chan any)
-	defer close(errs)
-
 	out := channels.Reject(in,
-		func(i int) bool { panic("panic!") },
+		func(i int) bool { return i%2 == 0 },
 		channels.ChannelCapacityOption[channels.RejectConfig](5),
-		channels.ErrorChannelOption[channels.RejectConfig](errs),
 	)
 
 	require.Equal(t, 5, cap(out))
+}
+
+func TestRejectProviderOptionWithReportPanics(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	provider, receiver := providers.NewProvider[any](0)
+	defer provider.Close()
+
+	channels.Reject(in,
+		func(i int) bool { panic("panic!") },
+		channels.PanicProviderOption[channels.RejectConfig](provider),
+	)
 
 	in <- 1
-	require.Equal(t, "panic!", <-errs)
+	require.Equal(t, "panic!", <-receiver.Channel())
 }

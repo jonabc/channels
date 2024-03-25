@@ -1,9 +1,13 @@
 package channels
 
+import (
+	"github.com/jonabc/channels/providers"
+)
+
 // FlatMapConfig contains user configurable options for the FlatMap functions
 type FlatMapConfig struct {
-	panc     chan<- any
-	capacity int
+	panicProvider providers.Provider[any]
+	capacity      int
 }
 
 func defaultFlatMapOptions[T any](inc <-chan T) []Option[FlatMapConfig] {
@@ -22,10 +26,10 @@ func FlatMap[TIn any, TOut any, TOutSlice []TOut](inc <-chan TIn, mapFn func(TIn
 	cfg := parseOpts(append(defaultFlatMapOptions(inc), opts...)...)
 
 	outc := make(chan TOut, cfg.capacity)
-	panc := cfg.panc
+	panicProvider := cfg.panicProvider
 
 	go func() {
-		defer handlePanicIfErrc(panc)
+		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
 		for in := range inc {

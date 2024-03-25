@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jonabc/channels"
+	"github.com/jonabc/channels/providers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -126,18 +127,18 @@ func TestDebounceCustom(t *testing.T) {
 	require.GreaterOrEqual(t, time.Since(start), delay+(4*time.Millisecond))
 }
 
-func TestDebounceAcceptsOptions(t *testing.T) {
+func TestDebounceChannelCapacityOption(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
 	defer close(in)
 
-	errs := make(chan any)
-	defer close(errs)
+	panicProvider, _ := providers.NewProvider[any](0)
+	defer panicProvider.Close()
 
 	out, _ := channels.Debounce(in, 2*time.Millisecond,
 		channels.ChannelCapacityOption[channels.DebounceConfig](5),
-		channels.ErrorChannelOption[channels.DebounceConfig](errs),
+		channels.PanicProviderOption[channels.DebounceConfig](panicProvider),
 	)
 
 	require.Equal(t, 5, cap(out))
@@ -149,12 +150,12 @@ func TestDebounceCustomAcceptsOptions(t *testing.T) {
 	in := make(chan *customDebouncingType, 100)
 	defer close(in)
 
-	errs := make(chan any)
-	defer close(errs)
+	panicProvider, _ := providers.NewProvider[any](0)
+	defer panicProvider.Close()
 
 	out, _ := channels.DebounceCustom(in,
 		channels.ChannelCapacityOption[channels.DebounceConfig](5),
-		channels.ErrorChannelOption[channels.DebounceConfig](errs),
+		channels.PanicProviderOption[channels.DebounceConfig](panicProvider),
 	)
 
 	require.Equal(t, 5, cap(out))
