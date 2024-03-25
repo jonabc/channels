@@ -1,11 +1,14 @@
 package channels
 
 import (
+	"time"
+
 	"github.com/jonabc/channels/providers"
 )
 
 type TapConfig struct {
 	panicProvider providers.Provider[any]
+	statsProvider providers.Provider[TapStats]
 	capacity      int
 }
 
@@ -25,19 +28,28 @@ func Tap[T any](inc <-chan T, preFn func(T), postFn func(T), opts ...Option[TapC
 
 	outc := make(chan T, cfg.capacity)
 	panicProvider := cfg.panicProvider
+	statsProvider := cfg.statsProvider
 
 	go func() {
 		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
 		for val := range inc {
+			start := time.Now()
 			if preFn != nil {
 				preFn(val)
 			}
+			preDuration := time.Since(start)
+
 			outc <- val
+
+			start = time.Now()
 			if postFn != nil {
 				postFn(val)
 			}
+			postDuration := time.Since(start)
+
+			tryProvideStats(TapStats{PreDuration: preDuration, PostDuration: postDuration}, statsProvider)
 		}
 	}()
 

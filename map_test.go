@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/jonabc/channels"
 	"github.com/jonabc/channels/providers"
@@ -76,4 +77,30 @@ func TestMapProviderOptionWithReportPanics(t *testing.T) {
 
 	in <- 1
 	require.Equal(t, "panic!", <-receiver.Channel())
+}
+
+func TestMapProviderOptionWithReportStats(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	provider, receiver := providers.NewCollectingProvider[channels.Stats](0)
+	defer provider.Close()
+
+	out := channels.Map(in,
+		func(i int) (bool, bool) {
+			time.Sleep(2 * time.Millisecond)
+			return true, true
+		},
+		channels.StatsProviderOption[channels.MapConfig](provider),
+	)
+
+	in <- 1
+	<-out
+
+	stats, ok := <-receiver.Channel()
+	require.True(t, ok)
+	require.Len(t, stats, 1)
+	require.GreaterOrEqual(t, stats[0].Duration, 2*time.Millisecond)
 }

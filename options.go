@@ -1,5 +1,9 @@
 package channels
 
+import (
+	"github.com/jonabc/channels/providers"
+)
+
 type channelConfiguration interface {
 	BatchConfig |
 		DebounceConfig |
@@ -98,4 +102,64 @@ func parseOpts[C any, O ~func(*C)](opts ...O) *C {
 	}
 
 	return cfg
+}
+
+type statsConfiguration interface {
+	FlatMapConfig |
+		MapConfig |
+		ReduceConfig |
+		SplitConfig
+}
+
+// Specify a stats provider to receive information about operations that emit a duration.
+func StatsProviderOption[T statsConfiguration](provider providers.Provider[Stats]) Option[T] {
+	return func(cfg *T) {
+		switch cfg := any(cfg).(type) {
+		case *FlatMapConfig:
+			cfg.statsProvider = provider
+		case *MapConfig:
+			cfg.statsProvider = provider
+		case *ReduceConfig:
+			cfg.statsProvider = provider
+		case *SplitConfig:
+			cfg.statsProvider = provider
+		}
+	}
+}
+
+// Specify a stats provider to receive information about batch operations.
+func BatchStatsProviderOption(provider providers.Provider[BatchStats]) Option[BatchConfig] {
+	return func(cfg *BatchConfig) {
+		cfg.statsProvider = provider
+	}
+}
+
+// Specify a stats provider to receive information about debounce operations.
+func DebounceStatsProviderOption(provider providers.Provider[DebounceStats]) Option[DebounceConfig] {
+	return func(cfg *DebounceConfig) {
+		cfg.statsProvider = provider
+	}
+}
+
+type selectStatsConfiguration interface {
+	SelectConfig | RejectConfig
+}
+
+// Specify a stats provider to receive information about select and reject operations.
+func SelectStatsProviderOption[T selectStatsConfiguration](provider providers.Provider[SelectStats]) Option[T] {
+	return func(cfg *T) {
+		switch cfg := any(cfg).(type) {
+		case *RejectConfig:
+			cfg.statsProvider = provider
+		case *SelectConfig:
+			cfg.statsProvider = provider
+		}
+	}
+}
+
+// Specify a stats provider to receive information about tap operations.
+func TapStatsProviderOption(provider providers.Provider[TapStats]) Option[TapConfig] {
+	return func(cfg *TapConfig) {
+		cfg.statsProvider = provider
+	}
 }

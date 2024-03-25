@@ -143,6 +143,30 @@ func TestSplitProviderOptionWithReportPanics(t *testing.T) {
 
 	in <- 1
 	require.Equal(t, "panic!", <-receiver.Channel())
+}
+
+func TestSplitProviderOptionWithReportStats(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	provider, receiver := providers.NewCollectingProvider[channels.Stats](0)
+	defer provider.Close()
+
+	channels.Split(in,
+		2,
+		func(i int, chans []chan<- int) {
+			time.Sleep(2 * time.Millisecond)
+			chans[i%2] <- i
+		},
+		channels.StatsProviderOption[channels.SplitConfig](provider),
+	)
 
 	in <- 1
+
+	stats, ok := <-receiver.Channel()
+	require.True(t, ok)
+	require.Len(t, stats, 1)
+	require.GreaterOrEqual(t, stats[0].Duration, 2*time.Millisecond)
 }

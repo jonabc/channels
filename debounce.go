@@ -10,6 +10,7 @@ import (
 // DebounceConfig contains user configurable options for the Debounce functions
 type DebounceConfig struct {
 	panicProvider providers.Provider[any]
+	statsProvider providers.Provider[DebounceStats]
 	capacity      int
 }
 
@@ -73,6 +74,7 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration, opts ...Option[De
 
 	outBridge, getDebouncedCount := DebounceCustom(inBridge,
 		PanicProviderOption[DebounceConfig](cfg.panicProvider),
+		DebounceStatsProviderOption(cfg.statsProvider),
 	)
 	go func() {
 		defer close(outc)
@@ -102,13 +104,15 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T, opts ...O
 	outc := make(chan T, cfg.capacity)
 	done := make(chan struct{})
 	panicProvider := cfg.panicProvider
+	statsProvider := cfg.statsProvider
 
 	// the buffer stores a map of key value pairs of
 	// items from the input channel currently being debounced
 	buffer := debounceBuffer[K, T]{
-		data: make(map[K]T),
-		done: done,
+		data:          make(map[K]*debounceItem[K, T]),
+		done:          done,
 		panicProvider: panicProvider,
+		statsProvider: statsProvider,
 	}
 
 	go func() {
@@ -128,11 +132,18 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T, opts ...O
 	return outc, buffer.len
 }
 
-// debounceBuffer stores debounced values and
+type debounceItem[K comparable, T DebounceInput[K, T]] struct {
+	count uint
+	value T
+}
+
+// debounceBuffer stores debounced values and counts
 type debounceBuffer[K comparable, T DebounceInput[K, T]] struct {
 	sync.Mutex
-	data map[K]T
+	data map[K]*debounceItem[K, T]
+
 	panicProvider providers.Provider[any]
+	statsProvider providers.Provider[DebounceStats]
 
 	wg   sync.WaitGroup
 	done <-chan struct{}
@@ -144,22 +155,28 @@ func (buffer *debounceBuffer[K, T]) process(item T, onDebounce func(T)) {
 
 	key := item.Key()
 
-	if value, hasExistingValue := buffer.data[key]; hasExistingValue {
-		value, ok := value.Reduce(item)
+	if existing, hasExistingValue := buffer.data[key]; hasExistingValue {
+		existing.count++
+
+		value, ok := existing.value.Reduce(item)
 		if ok {
-			buffer.data[key] = value
+			existing.value = value
 		}
 		return
 	}
 
 	// for new items, start a routine to push the item
-	buffer.data[key] = item
+	buffer.data[key] = &debounceItem[K, T]{
+		value: item,
+		count: 1,
+	}
 	buffer.wg.Add(1)
 	delay := item.Delay()
 	go func(key K, delay time.Duration) {
 		defer tryHandlePanic(buffer.panicProvider)
 		defer buffer.wg.Done()
 
+		start := time.Now()
 		// call onDebounce after the specified delay
 		// or when the done channel is closed
 		select {
@@ -167,12 +184,16 @@ func (buffer *debounceBuffer[K, T]) process(item T, onDebounce func(T)) {
 		case <-time.After(delay):
 		}
 
+		duration := time.Since(start)
+
 		buffer.Lock()
 		defer buffer.Unlock()
 
 		item := buffer.data[key]
 		delete(buffer.data, key)
-		onDebounce(item)
+		onDebounce(item.value)
+
+		tryProvideStats(DebounceStats{Delay: duration, Count: item.count}, buffer.statsProvider)
 	}(key, delay)
 }
 

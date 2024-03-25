@@ -74,3 +74,30 @@ func TestRejectProviderOptionWithReportPanics(t *testing.T) {
 	in <- 1
 	require.Equal(t, "panic!", <-receiver.Channel())
 }
+
+func TestRejectProviderOptionWithReportStats(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	provider, receiver := providers.NewCollectingProvider[channels.SelectStats](0)
+	defer provider.Close()
+
+	out := channels.Reject(in,
+		func(i int) bool {
+			time.Sleep(2 * time.Millisecond)
+			return i%2 == 0
+		},
+		channels.SelectStatsProviderOption[channels.RejectConfig](provider),
+	)
+
+	in <- 1
+	<-out
+
+	stats, ok := <-receiver.Channel()
+	require.True(t, ok)
+	require.Len(t, stats, 1)
+	require.GreaterOrEqual(t, stats[0].Duration, 2*time.Millisecond)
+	require.True(t, stats[0].Selected)
+}

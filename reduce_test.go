@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/jonabc/channels"
 	"github.com/jonabc/channels/providers"
@@ -88,4 +89,33 @@ func TesReduceProviderOptionWithReportPanics(t *testing.T) {
 
 	in <- 1
 	require.Equal(t, "panic!", <-receiver.Channel())
+}
+
+func TestReduceProviderOptionWithReportStats(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	provider, receiver := providers.NewCollectingProvider[channels.Stats](0)
+	defer provider.Close()
+
+	out := channels.Reduce(in,
+		func(current int, i int) (int, bool) {
+			time.Sleep(2 * time.Millisecond)
+			if i == 3 {
+				return 10, false
+			}
+			return current + i, true
+		},
+		channels.StatsProviderOption[channels.ReduceConfig](provider),
+	)
+
+	in <- 1
+	<-out
+
+	stats, ok := <-receiver.Channel()
+	require.True(t, ok)
+	require.Len(t, stats, 1)
+	require.GreaterOrEqual(t, stats[0].Duration, 2*time.Millisecond)
 }

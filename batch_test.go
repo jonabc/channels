@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/jonabc/channels"
+	"github.com/jonabc/channels/providers"
 )
 
 func TestBatchAfterMaxBatchSize(t *testing.T) {
@@ -103,4 +104,37 @@ func TestBatchChannelCapacityOption(t *testing.T) {
 	)
 
 	require.Equal(t, outCapacity, cap(out))
+}
+
+func TestBatchProviderOptionWithStatsReporting(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	provider, receiver := providers.NewCollectingProvider[channels.BatchStats](0)
+	defer provider.Close()
+
+	out := channels.Batch(in, 2, 2*time.Millisecond,
+		channels.BatchStatsProviderOption(provider),
+	)
+
+	in <- 1
+	in <- 2
+	<-out
+
+	stats, ok := <-receiver.Channel()
+	require.True(t, ok)
+	require.Len(t, stats, 1)
+	require.Greater(t, stats[0].Duration, time.Duration(0))
+	require.Equal(t, uint(2), stats[0].BatchSize)
+
+	in <- 1
+	<-out
+
+	stats, ok = <-receiver.Channel()
+	require.True(t, ok)
+	require.Len(t, stats, 1)
+	require.Greater(t, stats[0].Duration, 2*time.Millisecond)
+	require.Equal(t, uint(1), stats[0].BatchSize)
 }

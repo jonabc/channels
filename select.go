@@ -1,11 +1,14 @@
 package channels
 
 import (
+	"time"
+
 	"github.com/jonabc/channels/providers"
 )
 
 type SelectConfig struct {
 	panicProvider providers.Provider[any]
+	statsProvider providers.Provider[SelectStats]
 	capacity      int
 }
 
@@ -24,15 +27,22 @@ func Select[T any](inc <-chan T, selectFn func(T) bool, opts ...Option[SelectCon
 
 	outc := make(chan T, cfg.capacity)
 	panicProvider := cfg.panicProvider
+	statsProvider := cfg.statsProvider
 
 	go func() {
 		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
 		for in := range inc {
-			if selectFn(in) {
+			start := time.Now()
+			selected := selectFn(in)
+			duration := time.Since(start)
+
+			if selected {
 				outc <- in
 			}
+
+			tryProvideStats(SelectStats{Duration: duration, Selected: selected}, statsProvider)
 		}
 	}()
 
