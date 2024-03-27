@@ -14,12 +14,6 @@ type DebounceConfig struct {
 	capacity      int
 }
 
-func defaultDebounceOptions[T any](inc <-chan T) []Option[DebounceConfig] {
-	return []Option[DebounceConfig]{
-		ChannelCapacityOption[DebounceConfig](cap(inc)),
-	}
-}
-
 type Keyable[K comparable] interface {
 	Key() K
 }
@@ -60,7 +54,7 @@ func (i *debounceInputComparable[T]) Reduce(*debounceInputComparable[T]) (*debou
 // Debounce also returns a function which returns the number of debounced values
 // that are currently being delayed
 func Debounce[T comparable](inc <-chan T, delay time.Duration, opts ...Option[DebounceConfig]) (<-chan T, func() int) {
-	cfg := parseOpts(append(defaultDebounceOptions(inc), opts...)...)
+	cfg := parseOpts(opts...)
 
 	outc := make(chan T, cfg.capacity)
 
@@ -99,7 +93,7 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration, opts ...Option[De
 // DebounceCustom also returns a function which returns the number of debounced values
 // that are currently being delayed
 func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T, opts ...Option[DebounceConfig]) (<-chan T, func() int) {
-	cfg := parseOpts(append(defaultDebounceOptions(inc), opts...)...)
+	cfg := parseOpts(opts...)
 
 	outc := make(chan T, cfg.capacity)
 	done := make(chan struct{})

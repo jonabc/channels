@@ -13,7 +13,6 @@ func TestReduce(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
-	defer close(in)
 
 	out := channels.Reduce(in, func(current int, i int) (int, bool) {
 		if i == 3 {
@@ -21,17 +20,20 @@ func TestReduce(t *testing.T) {
 		}
 		return current + i, true
 	})
-	require.Equal(t, cap(in), cap(out))
+	require.Equal(t, 0, cap(out))
+
 	in <- 1
 	in <- 2
 	in <- 3
 	in <- 4
+	close(in)
 
 	require.Equal(t, 1, <-out)
 	require.Equal(t, 3, <-out)
 	require.Equal(t, 7, <-out)
 
-	require.Equal(t, 0, len(out))
+	_, ok := <-out
+	require.False(t, ok)
 }
 
 func TestReduceValues(t *testing.T) {

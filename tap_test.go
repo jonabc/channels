@@ -21,7 +21,7 @@ func TestTap(t *testing.T) {
 		func(i int) { post = append(post, i) },
 	)
 
-	require.Equal(t, cap(in), cap(out))
+	require.Equal(t, 0, cap(out))
 
 	in <- 1
 	in <- 2
@@ -34,7 +34,9 @@ func TestTap(t *testing.T) {
 	require.Equal(t, []int{1, 2}, results)
 	require.Equal(t, []int{1, 2}, pre)
 	require.Equal(t, []int{1, 2}, post)
-	require.Len(t, out, 0)
+
+	_, ok := <-out
+	require.False(t, ok)
 }
 
 func TestTapAcceptsOptions(t *testing.T) {

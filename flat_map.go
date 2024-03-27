@@ -13,12 +13,6 @@ type FlatMapConfig struct {
 	capacity      int
 }
 
-func defaultFlatMapOptions[T any](inc <-chan T) []Option[FlatMapConfig] {
-	return []Option[FlatMapConfig]{
-		ChannelCapacityOption[FlatMapConfig](cap(inc)),
-	}
-}
-
 // FlatMap reads values from the input channel and applies the provided `mapFn`
 // to each value.  Each element in the slice returned by `mapFn` is then sent to the
 // output channel.
@@ -26,7 +20,7 @@ func defaultFlatMapOptions[T any](inc <-chan T) []Option[FlatMapConfig] {
 // closed once the input channel is closed and all mapped values are pushed to
 // the output channel.
 func FlatMap[TIn any, TOut any, TOutSlice []TOut](inc <-chan TIn, mapFn func(TIn) (TOutSlice, bool), opts ...Option[FlatMapConfig]) <-chan TOut {
-	cfg := parseOpts(append(defaultFlatMapOptions(inc), opts...)...)
+	cfg := parseOpts(opts...)
 
 	outc := make(chan TOut, cfg.capacity)
 	panicProvider := cfg.panicProvider

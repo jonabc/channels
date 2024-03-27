@@ -17,7 +17,7 @@ func TestDebounce(t *testing.T) {
 
 	delay := 20 * time.Millisecond
 	outc, getDebouncedCount := channels.Debounce(inc, delay)
-	require.Equal(t, cap(inc), cap(outc))
+	require.Equal(t, 0, cap(outc))
 
 	start := time.Now()
 
@@ -88,7 +88,7 @@ func TestDebounceCustom(t *testing.T) {
 
 	delay := 5 * time.Millisecond
 	outc, getDebouncedCount := channels.DebounceCustom(inc)
-	require.Equal(t, cap(inc), cap(outc))
+	require.Equal(t, 0, cap(outc))
 
 	start := time.Now()
 

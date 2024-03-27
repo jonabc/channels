@@ -13,22 +13,24 @@ func TestFlatMap(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
-	defer close(in)
 
 	out := channels.FlatMap(in, func(i int) ([]int, bool) {
 		return []int{i * 10, i*10 + 1}, i < 3
 	})
-	require.Equal(t, cap(in), cap(out))
+	require.Equal(t, 0, cap(out))
 
 	in <- 1
 	in <- 2
 	in <- 3
+	close(in)
 
 	require.Equal(t, <-out, 10)
 	require.Equal(t, <-out, 11)
 	require.Equal(t, <-out, 20)
 	require.Equal(t, <-out, 21)
-	require.Len(t, out, 0)
+
+	_, ok := <-out
+	require.False(t, ok)
 }
 
 func TestFlatMapValues(t *testing.T) {
