@@ -13,7 +13,6 @@ func TestSplit(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 10)
-	defer close(in)
 
 	outArray := channels.Split(in, 2, func(i int, chans []chan<- int) {
 		require.Len(t, chans, 2)
@@ -22,25 +21,26 @@ func TestSplit(t *testing.T) {
 	require.Equal(t, 2, len(outArray))
 
 	evens := outArray[0]
-	require.Equal(t, cap(in), cap(evens))
+	require.Equal(t, 1, cap(evens))
 
 	odds := outArray[1]
-	require.Equal(t, cap(in), cap(odds))
+	require.Equal(t, 1, cap(odds))
 
 	in <- 1
 	in <- 2
 	in <- 3
 	in <- 4
+	close(in)
 
-	time.Sleep(1 * time.Millisecond)
-
-	require.Len(t, evens, 2)
+	require.Equal(t, <-odds, 1)
 	require.Equal(t, <-evens, 2)
+	require.Equal(t, <-odds, 3)
 	require.Equal(t, <-evens, 4)
 
-	require.Len(t, odds, 2)
-	require.Equal(t, <-odds, 1)
-	require.Equal(t, <-odds, 3)
+	_, ok := <-odds
+	require.False(t, ok)
+	_, ok = <-odds
+	require.False(t, ok)
 }
 
 func TestSplitValues(t *testing.T) {
@@ -78,14 +78,13 @@ func TestSplit2(t *testing.T) {
 	})
 
 	in <- 1
-	in <- 2
-	in <- 3
-	in <- 4
-
-	require.Equal(t, 2, <-evens)
-	require.Equal(t, 4, <-evens)
 	require.Equal(t, 1, <-odds)
+	in <- 2
+	require.Equal(t, 2, <-evens)
+	in <- 3
 	require.Equal(t, 3, <-odds)
+	in <- 4
+	require.Equal(t, 4, <-evens)
 }
 
 func TestSplit3(t *testing.T) {
@@ -100,13 +99,12 @@ func TestSplit3(t *testing.T) {
 	})
 
 	in <- 1
-	in <- 2
-	in <- 3
-	in <- 4
-
 	require.Equal(t, 1, <-ones)
+	in <- 2
 	require.Equal(t, 2, <-twos)
+	in <- 3
 	require.Equal(t, 3, <-zeros)
+	in <- 4
 	require.Equal(t, 4, <-ones)
 }
 
@@ -154,7 +152,7 @@ func TestSplitProviderOptionWithReportStats(t *testing.T) {
 	provider, receiver := providers.NewCollectingProvider[channels.Stats](0)
 	defer provider.Close()
 
-	channels.Split(in,
+	out := channels.Split(in,
 		2,
 		func(i int, chans []chan<- int) {
 			time.Sleep(2 * time.Millisecond)
@@ -164,6 +162,7 @@ func TestSplitProviderOptionWithReportStats(t *testing.T) {
 	)
 
 	in <- 1
+	<-out[1]
 
 	stats, ok := <-receiver.Channel()
 	require.True(t, ok)
