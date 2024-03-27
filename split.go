@@ -13,10 +13,10 @@ type SplitConfig struct {
 	capacities    []int
 }
 
-func defaultSplitOptions[T any](inc <-chan T, count int) []Option[SplitConfig] {
+func defaultSplitOptions(count int) []Option[SplitConfig] {
 	capacities := make([]int, count)
 	for i := 0; i < count; i++ {
-		capacities[i] = cap(inc)
+		capacities[i] = 1
 	}
 	return []Option[SplitConfig]{
 		MultiChannelCapacitiesOption[SplitConfig](capacities),
@@ -32,7 +32,7 @@ func defaultSplitOptions[T any](inc <-chan T, count int) []Option[SplitConfig] {
 // Each output channel will have the same capacity as the input channel and
 // will be closed after the input channel is closed and emptied.
 func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T), opts ...Option[SplitConfig]) []<-chan T {
-	cfg := parseOpts(append(defaultSplitOptions(inc, count), opts...)...)
+	cfg := parseOpts(append(defaultSplitOptions(count), opts...)...)
 
 	writeOutc := make([]chan<- T, count)
 	readOutc := make([]<-chan T, count)
