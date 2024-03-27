@@ -12,18 +12,12 @@ type RejectConfig struct {
 	capacity      int
 }
 
-func defaultRejectOptions[T any](inc <-chan T) []Option[RejectConfig] {
-	return []Option[RejectConfig]{
-		ChannelCapacityOption[RejectConfig](cap(inc)),
-	}
-}
-
 // Selects values from the input channel that return false from the provided `rejectFn`
 // and pushes them to the output channel.  The output channel will have the same capacity
 // as the input channel.  The output channel is closed once the input channel is closed
 // and all selected values pushed to the output channel.
 func Reject[T any](inc <-chan T, rejectFn func(T) bool, opts ...Option[RejectConfig]) <-chan T {
-	cfg := parseOpts(append(defaultRejectOptions(inc), opts...)...)
+	cfg := parseOpts(opts...)
 
 	outc := make(chan T, cfg.capacity)
 	panicProvider := cfg.panicProvider

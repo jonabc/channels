@@ -14,18 +14,12 @@ type BatchConfig struct {
 	capacity      int
 }
 
-func defaultBatchOptions[T any](inc <-chan T, batchSize int) []Option[BatchConfig] {
-	return []Option[BatchConfig]{
-		ChannelCapacityOption[BatchConfig](cap(inc) / batchSize),
-	}
-}
-
 // Batch N values from the input channel into an array of N values in the output channel.
 // The output channel will have capacity $`cap(input channel) / batchSize`$.
 // The output channel is closed once the input channel is closed and a partial batch is
 // sent to the output channel, if a partial batch exists.
 func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration, opts ...Option[BatchConfig]) <-chan []T {
-	cfg := parseOpts(append(defaultBatchOptions(inc, batchSize), opts...)...)
+	cfg := parseOpts(opts...)
 
 	outc := make(chan []T, cfg.capacity)
 	panicProvider := cfg.panicProvider

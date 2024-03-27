@@ -18,8 +18,7 @@ func TestBatchAfterMaxBatchSize(t *testing.T) {
 	batchSize := 5
 	out := channels.Batch(in, batchSize, 0)
 
-	maxBatches := cap(in) / batchSize
-	require.Equal(t, maxBatches, cap(out))
+	require.Equal(t, 0, cap(out))
 
 	go func() {
 		defer close(in)
@@ -55,9 +54,7 @@ func TestBatchAfterMaxDelay(t *testing.T) {
 	out := channels.Batch(in, batchSize, maxDelay)
 
 	in <- 1
-	time.Sleep(2 * maxDelay)
 
-	require.Len(t, out, 1)
 	require.Equal(t, <-out, []int{1})
 }
 
@@ -72,9 +69,7 @@ func TestBatchDrainsItemsOnInputChannelClose(t *testing.T) {
 	in <- 1
 
 	close(in)
-	time.Sleep(1 * time.Millisecond)
 
-	require.Len(t, out, 1)
 	require.Equal(t, <-out, []int{1})
 }
 

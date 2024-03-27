@@ -14,18 +14,17 @@ func TestReject(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
-	defer close(in)
 
 	out := channels.Reject(in, func(i int) bool { return i%2 == 0 })
-	require.Equal(t, cap(in), cap(out))
+	require.Equal(t, 0, cap(out))
 
-	in <- 1
 	in <- 2
+	in <- 1
+	close(in)
 
-	time.Sleep(1 * time.Millisecond)
-
-	require.Len(t, out, 1)
 	require.Equal(t, <-out, 1)
+	_, ok := <-out
+	require.False(t, ok)
 }
 
 func TestRejectValues(t *testing.T) {

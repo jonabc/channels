@@ -12,12 +12,6 @@ type MapConfig struct {
 	capacity      int
 }
 
-func defaultMapOptions[T any](inc <-chan T) []Option[MapConfig] {
-	return []Option[MapConfig]{
-		ChannelCapacityOption[MapConfig](cap(inc)),
-	}
-}
-
 // Map reads values from the input channel and applies the provided `mapFn`
 // to each value before pushing it to the output channel.  The output channel
 // will have the same capacity as the input channel.  The output channel is
@@ -25,7 +19,7 @@ func defaultMapOptions[T any](inc <-chan T) []Option[MapConfig] {
 // the output channel.  The type of the output channel does not need to match
 // the type of the input channel.
 func Map[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) (TOut, bool), opts ...Option[MapConfig]) <-chan TOut {
-	cfg := parseOpts(append(defaultMapOptions(inc), opts...)...)
+	cfg := parseOpts(opts...)
 
 	outc := make(chan TOut, cfg.capacity)
 	panicProvider := cfg.panicProvider

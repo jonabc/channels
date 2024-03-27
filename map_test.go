@@ -13,20 +13,22 @@ func TestMap(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
-	defer close(in)
 
 	out := channels.Map(in, func(i int) (bool, bool) {
 		return i%2 == 0, i < 3
 	})
-	require.Equal(t, cap(in), cap(out))
+	require.Equal(t, 0, cap(out))
 
 	in <- 1
 	in <- 2
 	in <- 3
+	close(in)
 
 	require.Equal(t, <-out, false)
 	require.Equal(t, <-out, true)
-	require.Len(t, out, 0)
+
+	_, ok := <-out
+	require.False(t, ok)
 }
 
 func TestMapValues(t *testing.T) {
