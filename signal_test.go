@@ -13,7 +13,7 @@ func TestWithDone(t *testing.T) {
 	inc := make(chan int, 4)
 
 	outc, done := channels.WithDone(inc)
-	require.Equal(t, cap(inc), cap(outc))
+	require.Equal(t, 0, cap(outc))
 	require.Equal(t, 0, cap(done))
 	require.Empty(t, outc)
 

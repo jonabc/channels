@@ -8,14 +8,14 @@ import (
 
 type MergeConfig struct {
 	panicProvider providers.Provider[any]
+	capacity      int
 }
 
 // Merge merges multiple input channels into a single output channel.  The
 // order of values in the output channel is not guaranteed to match the
 // order that values are written to the input channels.  The output channel
-// has the same capacity as the input channel and is closed when all input
-// channels are closed.
-func Merge[T any](capacity int, chans []<-chan T, opts ...Option[MergeConfig]) <-chan T {
+// is unbuffered by default and is closed when all input channels are closed.
+func Merge[T any](chans []<-chan T, opts ...Option[MergeConfig]) <-chan T {
 	cfg := parseOpts(opts...)
 	panicProvider := cfg.panicProvider
 
@@ -26,7 +26,7 @@ func Merge[T any](capacity int, chans []<-chan T, opts ...Option[MergeConfig]) <
 		return chans[0]
 	default:
 		var wg sync.WaitGroup
-		outc := make(chan T, capacity)
+		outc := make(chan T, cfg.capacity)
 		i := 0
 
 		for len(chans)-i >= 4 {

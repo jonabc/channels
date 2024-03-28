@@ -51,6 +51,7 @@ type singleOutputConfiguration interface {
 		DebounceConfig |
 		FlatMapConfig |
 		MapConfig |
+		MergeConfig |
 		ReduceConfig |
 		RejectConfig |
 		SelectConfig |
@@ -68,6 +69,8 @@ func ChannelCapacityOption[T singleOutputConfiguration](capacity int) Option[T] 
 		case *FlatMapConfig:
 			cfg.capacity = capacity
 		case *MapConfig:
+			cfg.capacity = capacity
+		case *MergeConfig:
 			cfg.capacity = capacity
 		case *ReduceConfig:
 			cfg.capacity = capacity

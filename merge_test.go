@@ -31,17 +31,15 @@ func TestMerge(t *testing.T) {
 
 				go func(channel chan int, val int) {
 					defer close(channel)
-
-					// send one value, block, then send another
 					channel <- val
 				}(channel, i)
 			}
 
-			merged := channels.Merge(3, chans)
+			merged := channels.Merge(chans)
 			if len(chans) == 1 {
 				require.Equal(t, chans[0], merged)
 			} else {
-				require.Equal(t, 3, cap(merged))
+				require.Equal(t, 0, cap(merged))
 			}
 
 			results := make([]int, 0, count)
@@ -55,4 +53,22 @@ func TestMerge(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMergeChannelCapacityOption(t *testing.T) {
+	t.Parallel()
+
+	count := 2
+	chans := make([](<-chan int), 0, count)
+	for i := 0; i < count; i++ {
+		channel := make(chan int)
+		defer close(channel)
+		chans = append(chans, channel)
+	}
+
+	out := channels.Merge(chans,
+		channels.ChannelCapacityOption[channels.MergeConfig](5),
+	)
+
+	require.Equal(t, 5, cap(out))
 }
