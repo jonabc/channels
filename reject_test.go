@@ -50,7 +50,7 @@ func TestRejectChannelCapacityOption(t *testing.T) {
 
 	out := channels.Reject(in,
 		func(i int) bool { return i%2 == 0 },
-		channels.ChannelCapacityOption[channels.RejectConfig](5),
+		channels.ChannelCapacityOption[channels.SelectConfig](5),
 	)
 
 	require.Equal(t, 5, cap(out))
@@ -67,7 +67,7 @@ func TestRejectProviderOptionWithReportPanics(t *testing.T) {
 
 	channels.Reject(in,
 		func(i int) bool { panic("panic!") },
-		channels.PanicProviderOption[channels.RejectConfig](provider),
+		channels.PanicProviderOption[channels.SelectConfig](provider),
 	)
 
 	in <- 1
@@ -88,7 +88,7 @@ func TestRejectProviderOptionWithReportStats(t *testing.T) {
 			time.Sleep(2 * time.Millisecond)
 			return i%2 == 0
 		},
-		channels.SelectStatsProviderOption[channels.RejectConfig](provider),
+		channels.SelectStatsProviderOption(provider),
 	)
 
 	in <- 1

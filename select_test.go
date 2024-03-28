@@ -88,7 +88,7 @@ func TestSelectProviderOptionWithReportStats(t *testing.T) {
 			time.Sleep(2 * time.Millisecond)
 			return i%2 == 0
 		},
-		channels.SelectStatsProviderOption[channels.SelectConfig](provider),
+		channels.SelectStatsProviderOption(provider),
 	)
 
 	in <- 1

@@ -11,7 +11,6 @@ type channelConfiguration interface {
 		MapConfig |
 		MergeConfig |
 		ReduceConfig |
-		RejectConfig |
 		SelectConfig |
 		SplitConfig |
 		TapConfig
@@ -34,8 +33,6 @@ func PanicProviderOption[T channelConfiguration](provider providers.Provider[any
 			cfg.panicProvider = provider
 		case *ReduceConfig:
 			cfg.panicProvider = provider
-		case *RejectConfig:
-			cfg.panicProvider = provider
 		case *SelectConfig:
 			cfg.panicProvider = provider
 		case *SplitConfig:
@@ -53,7 +50,6 @@ type singleOutputConfiguration interface {
 		MapConfig |
 		MergeConfig |
 		ReduceConfig |
-		RejectConfig |
 		SelectConfig |
 		TapConfig
 }
@@ -73,8 +69,6 @@ func ChannelCapacityOption[T singleOutputConfiguration](capacity int) Option[T] 
 		case *MergeConfig:
 			cfg.capacity = capacity
 		case *ReduceConfig:
-			cfg.capacity = capacity
-		case *RejectConfig:
 			cfg.capacity = capacity
 		case *SelectConfig:
 			cfg.capacity = capacity
@@ -144,19 +138,10 @@ func DebounceStatsProviderOption(provider providers.Provider[DebounceStats]) Opt
 	}
 }
 
-type selectStatsConfiguration interface {
-	SelectConfig | RejectConfig
-}
-
 // Specify a stats provider to receive information about select and reject operations.
-func SelectStatsProviderOption[T selectStatsConfiguration](provider providers.Provider[SelectStats]) Option[T] {
-	return func(cfg *T) {
-		switch cfg := any(cfg).(type) {
-		case *RejectConfig:
-			cfg.statsProvider = provider
-		case *SelectConfig:
-			cfg.statsProvider = provider
-		}
+func SelectStatsProviderOption(provider providers.Provider[SelectStats]) Option[SelectConfig] {
+	return func(cfg *SelectConfig) {
+		cfg.statsProvider = provider
 	}
 }
 
