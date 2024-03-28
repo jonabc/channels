@@ -318,7 +318,7 @@ wg.Wait()
 // results will have the same elements as []int{1,2,3,4} but may not be in that order
 ```
 
-Merge merges multiple input channels into a single output channel.  The order of values in the output channel is not guaranteed to match the order that values are written to the input channels.  The output channel has `capacity` capacity and is closed when all input channels are closed.
+Merge merges multiple input channels into a single output channel.  The order of values in the output channel is not guaranteed to match the order that values are written to the input channels.  The output channel is unbuffered by default and is closed when all input channels are closed.
 
 ### Reduce
 
