@@ -5,7 +5,7 @@ package channels
 // when the input channel has been closed and all values written to
 // the piped output channel.
 func WithDone[T any](inc <-chan T) (<-chan T, <-chan struct{}) {
-	outc := make(chan T, cap(inc))
+	outc := make(chan T)
 	signal := make(chan struct{})
 
 	go func() {

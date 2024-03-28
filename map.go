@@ -14,10 +14,9 @@ type MapConfig struct {
 
 // Map reads values from the input channel and applies the provided `mapFn`
 // to each value before pushing it to the output channel.  The output channel
-// will have the same capacity as the input channel.  The output channel is
-// closed once the input channel is closed and all mapped values pushed to
-// the output channel.  The type of the output channel does not need to match
-// the type of the input channel.
+// is unbuffered by default, and will be closed once the input channel is
+// closed and all mapped values pushed to the output channel.
+// The type of the output channel does not need to match the type of the input channel.
 func Map[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) (TOut, bool), opts ...Option[MapConfig]) <-chan TOut {
 	cfg := parseOpts(opts...)
 

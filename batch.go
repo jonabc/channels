@@ -15,9 +15,9 @@ type BatchConfig struct {
 }
 
 // Batch N values from the input channel into an array of N values in the output channel.
-// The output channel will have capacity $`cap(input channel) / batchSize`$.
-// The output channel is closed once the input channel is closed and a partial batch is
-// sent to the output channel, if a partial batch exists.
+// The output channel is unbuffered by default, and will be closed when the input channel
+// is closed and drained.  If a partial batch exists when the input channel is closed,
+// the partial batch will be sent to the output channel.
 func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration, opts ...Option[BatchConfig]) <-chan []T {
 	cfg := parseOpts(opts...)
 

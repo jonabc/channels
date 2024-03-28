@@ -35,7 +35,7 @@ results := <- outc
 // results == []int{1,2}
 ```
 
-Batch N values from the input channel into an array of N values in the output channel.  The output channel will have capacity $`cap(input channel) / batchSize`$.  The output channel is closed once the input channel is closed and a partial batch is sent to the output channel, if a partial batch exists.
+Batch N values from the input channel into an array of N values in the output channel.  The output channel is unbuffered by default, and will be closed when the input channel is closed and drained.  If a partial batch exists when the input channel is closed, the partial batch will be sent to the output channel.
 
 ### BatchValues (Blocking)
 
@@ -86,7 +86,7 @@ results += <- outc
 
 Debounce reads values from the input channel and pushes them to the returned output channel after a delay.  If a value is read from the input channel multiple times during the debounce period it will only be pushed to the output channel once, after a `delay` started from when the first of the value multiple values is read.
 
-The channel returned by Debounce has the same capacity as the input channel.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
+The channel returned by Debounce is unbuffered by default.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
 
 Debounce also returns a function which returns the number of debounced values that are currently being delayed
 
@@ -164,7 +164,7 @@ DebounceCustom is like Debounce but with per-item configurability over compariso
    - This function is only called for the first value debounced for each unique key, i.e. if a value is read from the input channel with the same `Key()` as an existing delayed value, the delay from the previously seen value is maintained
 3. `Reduce(T) T` combines the value with another value.  As duplicate values are seen (as determined by comparisons of `Key()`), they will be continuously reduced to a single value which will be returned after the debounce period for that value has elapsed.
 
-The channel returned by DebounceCustom has the same capacity as the input channel.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
+The channel returned by DebounceCustom is unbuffered by default.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
 
 DebounceCustom also returns a function which returns the number of debounced values that are currently being delayed.
 
@@ -212,7 +212,7 @@ for result := range outc {
 
 FlatMap reads values from the input channel and applies the provided `mapFn` to each value.  Each element in the slice returned by `mapFn` is then sent to the output channel.
 
-The output channel will have the same capacity as the input channel, and is closed once the input channel is closed and all mapped values are pushed to the output channel.
+The output channel is unbuffered by defualt, and is closed once the input channel is closed and all mapped values are pushed to the output channel.
 
 ### FlatMapValues (Blocking)
 
@@ -258,7 +258,7 @@ for result := range outc {
 // results == []bool{false, true}
 ```
 
-Map reads values from the input channel and applies the provided `mapFn` to each value before pushing it to the output channel.  The output channel will have the same capacity as the input channel.  The output channel is closed once the input channel is closed and all mapped values pushed to the output channel.  The type of the output channel does not need to match the type of the input channel.
+Map reads values from the input channel and applies the provided `mapFn` to each value before pushing it to the output channel.  The output channel is unbuffered by default, and will be closed once the input channel is closed and all mapped values pushed to the output channel.  The type of the output channel does not need to match the type of the input channel.
 
 ### MapValues (Blocking)
 
@@ -400,7 +400,7 @@ for result := range outc {
 // results == []int{1}
 ```
 
-Selects values from the input channel that return false from the provided `rejectFn` and pushes them to the output channel.  The output channel will have the same capacity as the input channel.  The output channel is closed once the input channel is closed and all selected values pushed to the output channel.
+Selects values from the input channel that return false from the provided `rejectFn` and pushes them to the output channel.  The output channel is unbuffered by default, and is closed once the input channel is closed and all selected values pushed to the output channel.
 
 ### RejectValues (Blocking)
 
@@ -444,7 +444,7 @@ for result := range outc {
 // results == []int{2}
 ```
 
-Selects values from the input channel that return true from the provided `selectFn` and pushes them to the output channel.  The output channel will have the same capacity as the input channel.  The output channel is closed once the input channel is closed and all selected values pushed to the output channel.
+Selects values from the input channel that return true from the provided `selectFn` and pushes them to the output channel.  The output channel is unbuffered by default, and is closed once the input channel is closed and all selected values pushed to the output channel.
 
 
 ### SelectValues (Blocking)
@@ -500,7 +500,7 @@ for result := range outChans[0] {
 
 Split reads values from the input channel and routes the values into `N` output channels using the provided `splitFn`.  The channel slice provided to `splitFn` will have the same length and order as the channel slice returned from the function, e.g. in the above example `Split` guarantees that chans[0] will hold even values and chans[1] will hold odd values.
 
-Each output channel will have the same capacity as the input channel and will be closed after the input channel is closed and emptied.
+Each output channel is unbuffered by default, and will be closed after the input channel is closed and emptied.
 
 ### SplitValues (Blocking)
 
@@ -551,7 +551,7 @@ for result := range outc {
 // results == []int{1, 2}
 ```
 
-Tap reads values from the input channel and calls the provided `[pre/post]Fn` functions with each value before and after writing the value to the output channel, respectivel.  The output channel has the same capacity as the input channel, and will be closed after the input channel is closed and drained.
+Tap reads values from the input channel and calls the provided `[pre/post]Fn` functions with each value before and after writing the value to the output channel, respectivel.  The output channel is unbuffered by default, and will be closed after the input channel is closed and drained.
 
 ### WithDone
 

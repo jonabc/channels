@@ -29,8 +29,8 @@ func defaultSplitOptions(count int) []Option[SplitConfig] {
 // returned from the function, e.g. in the above example `Split` guarantees
 // that chans[0] will hold even values and chans[1] will hold odd values.
 
-// Each output channel will have the same capacity as the input channel and
-// will be closed after the input channel is closed and emptied.
+// Each output channel is unbuffered by default, and will be closed after the
+// input channel is closed and emptied.
 func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T), opts ...Option[SplitConfig]) []<-chan T {
 	cfg := parseOpts(append(defaultSplitOptions(count), opts...)...)
 

@@ -47,7 +47,7 @@ func (i *debounceInputComparable[T]) Reduce(*debounceInputComparable[T]) (*debou
 // be pushed to the output channel once, after a `delay` started from
 // when the first of the value multiple values is read.
 
-// The channel returned by Debounce has the same capacity as the input channel.
+// The channel returned by Debounce is unbuffered by default.
 // When the input channel is closed, any remaining values being delayed/debounced
 // will be flushed to the output channel and the output channel will be closed.
 
@@ -86,7 +86,7 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration, opts ...Option[De
 // DebounceCustom requires types that implement the `DebounceInput[K comparable, T Keyable[K]]`
 // interface.
 
-// The channel returned by DebounceCustom has the same capacity as the input channel.
+// The channel returned by DebounceCustom is unbuffered by default.
 // When the input channel is closed, any remaining values being delayed/debounced
 // will be flushed to the output channel and the output channel will be closed.
 

@@ -16,9 +16,8 @@ type FlatMapConfig struct {
 // FlatMap reads values from the input channel and applies the provided `mapFn`
 // to each value.  Each element in the slice returned by `mapFn` is then sent to the
 // output channel.
-// The output channel will have the same capacity as the input channel, and is
-// closed once the input channel is closed and all mapped values are pushed to
-// the output channel.
+// The output channel is unbuffered by defualt, and is closed once the input channel
+// is closed and all mapped values are pushed to the output channel.
 func FlatMap[TIn any, TOut any, TOutSlice []TOut](inc <-chan TIn, mapFn func(TIn) (TOutSlice, bool), opts ...Option[FlatMapConfig]) <-chan TOut {
 	cfg := parseOpts(opts...)
 

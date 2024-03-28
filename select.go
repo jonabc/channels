@@ -13,9 +13,8 @@ type SelectConfig struct {
 }
 
 // Selects values from the input channel that return true from the provided `selectFn`
-// and pushes them to the output channel.  The output channel will have the same capacity
-// as the input channel.  The output channel is closed once the input channel is closed
-// and all selected values pushed to the output channel.
+// and pushes them to the output channel.  The output channel is unbuffered by default,
+// and is closed once the input channel is closed and all selected values pushed to the output channel.
 func Select[T any](inc <-chan T, selectFn func(T) bool, opts ...Option[SelectConfig]) <-chan T {
 	cfg := parseOpts(opts...)
 

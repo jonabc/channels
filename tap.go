@@ -15,8 +15,8 @@ type TapConfig struct {
 // Tap reads values from the input channel and calls the provided
 // `[pre/post]Fn` functions with each value before and after writing
 // the value to the output channel, respectivel.  The output channel
-// has the same capacity as the input channel, and will be closed
-// after the input channel is closed and drained.
+// is unbuffered by default, and will be closed after the input channel
+// is closed and drained.
 func Tap[T any](inc <-chan T, preFn func(T), postFn func(T), opts ...Option[TapConfig]) <-chan T {
 	cfg := parseOpts(opts...)
 
