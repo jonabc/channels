@@ -20,7 +20,9 @@ func TestDrainReturnsTrueWhenChannelIsDrainedAndClosed(t *testing.T) {
 		close(in)
 	}()
 
-	require.True(t, channels.Drain(in, 0))
+	count, drained := channels.Drain(in, 0)
+	require.Equal(t, 3, count)
+	require.True(t, drained)
 }
 
 func TestDrainReturnsFalseWhenMaxWaitElapses(t *testing.T) {
@@ -35,5 +37,7 @@ func TestDrainReturnsFalseWhenMaxWaitElapses(t *testing.T) {
 		close(in)
 	}()
 
-	require.False(t, channels.Drain(in, 2*time.Millisecond))
+	count, drained := channels.Drain(in, 2*time.Millisecond)
+	require.Equal(t, 0, count)
+	require.False(t, drained)
 }
