@@ -172,7 +172,7 @@ DebounceCustom also returns a function which returns the number of debounced val
 
 ```go
 // signature
-func Drain[T any](inc <-chan TIn, maxWait time.Duration) bool
+func Drain[T any](inc <-chan TIn, maxWait time.Duration) (int, bool)
 
 // usage
 inc := make(chan int)
@@ -181,8 +181,8 @@ inc <- 2
 inc <- 3
 close(inc)
 
-drained := channels.Drain(inc, 10 * time.Millisecond)
-// drained == true
+count, drained := channels.Drain(inc, 10 * time.Millisecond)
+// count == 3, drained == true
 ```
 
 Drain blocks until either the input channel is fully drained and closed or `maxWait` duration has passed.  Drain returns true when exiting due to the input channel being drained and closed, false when exiting due to waiting for the `maxWait` duration.  When `maxWait <= 0`, Drain will wait forever, and only exit when the input channel is closed.
@@ -285,7 +285,7 @@ Like Map, but blocks until the input channel is closed and all values are read. 
 
 ```go
 // signature
-func Merge[T any](capacity int, chans ...<-chan T) <-chan T
+func Merge[T any](chans ...<-chan T) <-chan T
 
 // usage
 
@@ -293,7 +293,7 @@ inc1 := make(chan int)
 inc2 := make(chan int)
 inc3 := make(chan int)
 
-outc := Merge(0, inc1, inc2, inc3)
+outc := Merge([]chan int{inc1, inc2, inc3})
 
 var wg sync.WaitGroup
 wg.Add(1)
