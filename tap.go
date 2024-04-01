@@ -17,7 +17,7 @@ type TapConfig struct {
 // the value to the output channel, respectivel.  The output channel
 // is unbuffered by default, and will be closed after the input channel
 // is closed and drained.
-func Tap[T any](inc <-chan T, preFn func(T), postFn func(T), opts ...Option[TapConfig]) <-chan T {
+func Tap[T any](inc <-chan T, preFn, postFn func(T), opts ...Option[TapConfig]) <-chan T {
 	cfg := parseOpts(opts...)
 
 	outc := make(chan T, cfg.capacity)
