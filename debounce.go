@@ -103,92 +103,90 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T, opts ...O
 	// the buffer stores a map of key value pairs of
 	// items from the input channel currently being debounced
 	buffer := debounceBuffer[K, T]{
-		data:          make(map[K]*debounceItem[K, T]),
-		done:          done,
-		panicProvider: panicProvider,
-		statsProvider: statsProvider,
+		data: make(map[K]*debounceItem[K, T]),
 	}
 
 	go func() {
 		defer tryHandlePanic(panicProvider)
 		defer close(outc)
 
+		var wg sync.WaitGroup
 		for next := range inc {
-			buffer.process(next, func(t T) {
-				outc <- t
-			})
+			key := next.Key()
+			if buffer.add(key, next) {
+				wg.Add(1)
+
+				go func(key K, delay time.Duration) {
+					defer tryHandlePanic(panicProvider)
+					defer wg.Done()
+
+					start := time.Now()
+
+					timer := time.NewTimer(delay)
+					select {
+					case <-done:
+						timer.Stop()
+					case <-timer.C:
+					}
+
+					duration := time.Since(start)
+
+					item, count := buffer.remove(key)
+
+					outc <- item
+					tryProvideStats(DebounceStats{Delay: duration, Count: count}, statsProvider)
+				}(key, next.Delay())
+			}
 		}
 
 		close(done)
-		buffer.wg.Wait()
+		wg.Wait()
 	}()
 
 	return outc, buffer.len
 }
 
 type debounceItem[K comparable, T DebounceInput[K, T]] struct {
-	count uint
 	value T
+	count uint
 }
 
 // debounceBuffer stores debounced values and counts
 type debounceBuffer[K comparable, T DebounceInput[K, T]] struct {
-	sync.Mutex
 	data map[K]*debounceItem[K, T]
-
-	panicProvider providers.Provider[any]
-	statsProvider providers.Provider[DebounceStats]
-
-	wg   sync.WaitGroup
-	done <-chan struct{}
+	sync.Mutex
 }
 
-func (buffer *debounceBuffer[K, T]) process(item T, onDebounce func(T)) {
+func (buffer *debounceBuffer[K, T]) add(key K, value T) bool {
 	buffer.Lock()
 	defer buffer.Unlock()
-
-	key := item.Key()
 
 	if existing, hasExistingValue := buffer.data[key]; hasExistingValue {
 		existing.count++
 
-		value, ok := existing.value.Reduce(item)
+		value, ok := existing.value.Reduce(value)
 		if ok {
 			existing.value = value
 		}
-		return
+		return false
 	}
 
-	// for new items, start a routine to push the item
 	buffer.data[key] = &debounceItem[K, T]{
-		value: item,
+		value: value,
 		count: 1,
 	}
-	buffer.wg.Add(1)
-	delay := item.Delay()
-	go func(key K, delay time.Duration) {
-		defer tryHandlePanic(buffer.panicProvider)
-		defer buffer.wg.Done()
 
-		start := time.Now()
-		// call onDebounce after the specified delay
-		// or when the done channel is closed
-		select {
-		case <-buffer.done:
-		case <-time.After(delay):
-		}
+	return true
+}
 
-		duration := time.Since(start)
+func (buffer *debounceBuffer[K, T]) remove(key K) (T, uint) {
+	buffer.Lock()
+	defer buffer.Unlock()
 
-		buffer.Lock()
-		defer buffer.Unlock()
+	item := buffer.data[key]
+	delete(buffer.data, key)
 
-		item := buffer.data[key]
-		delete(buffer.data, key)
-		onDebounce(item.value)
-
-		tryProvideStats(DebounceStats{Delay: duration, Count: item.count}, buffer.statsProvider)
-	}(key, delay)
+	return item.value, item.count
 }
 
 func (buffer *debounceBuffer[K, T]) len() int {
