@@ -8,11 +8,10 @@ type providerFunc[TIn any, TOut any] func(TIn, *providerReceiver[TIn, TOut]) boo
 // 1. Writing to the providerReceiver while it is closing or after it is closed will not produce a panic
 // 2. An providerReceiver can be configured for different behaviors on calling `Observe`
 type providerReceiver[TIn any, TOut any] struct {
-	outc      chan TOut
-	done      chan struct{}
-	closeOnce sync.Once
-
+	outc        chan TOut
+	done        chan struct{}
 	observingFn providerFunc[TIn, TOut]
+	closeOnce   sync.Once
 }
 
 func newProviderReceiver[TIn any, TOut any](size int, fn providerFunc[TIn, TOut]) *providerReceiver[TIn, TOut] {
