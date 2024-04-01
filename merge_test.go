@@ -18,7 +18,7 @@ func TestMerge(t *testing.T) {
 	// - 4 channels merge4
 	// - 5 channels multiple merge2 + merge1
 	// - 11 channels multiple merge4 + merge2 + merge1
-	channelCounts := []int{1, 2, 3, 4, 5, 11}
+	channelCounts := []int{0, 1, 2, 3, 4, 5, 11}
 	for _, count := range channelCounts {
 		count := count
 		t.Run(fmt.Sprintf("With%dChannels", count), func(t *testing.T) {
@@ -36,9 +36,14 @@ func TestMerge(t *testing.T) {
 			}
 
 			merged := channels.Merge(chans)
-			if len(chans) == 1 {
+			switch len(chans) {
+			case 0:
+				var expected <-chan int
+				require.Equal(t, expected, merged)
+				return
+			case 1:
 				require.Equal(t, chans[0], merged)
-			} else {
+			default:
 				require.Equal(t, 0, cap(merged))
 			}
 
