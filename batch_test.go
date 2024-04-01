@@ -43,6 +43,29 @@ func TestBatchAfterMaxBatchSize(t *testing.T) {
 	require.False(t, ok)
 }
 
+func TestBatchValuesAfterMaxBatchSize(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+
+	batchSize := 5
+	for i := 1; i <= cap(in); i++ {
+		in <- i
+	}
+	close(in)
+
+	out := channels.BatchValues(in, batchSize, 0)
+	require.Equal(t, cap(in)/batchSize, len(out))
+
+	for i, batch := range out {
+		expected := make([]int, 0, batchSize)
+		for j := i * batchSize; j < i*batchSize+batchSize; j++ {
+			expected = append(expected, j+1)
+		}
+		require.ElementsMatch(t, batch, expected)
+	}
+}
+
 func TestBatchAfterMaxDelay(t *testing.T) {
 	t.Parallel()
 
@@ -56,6 +79,25 @@ func TestBatchAfterMaxDelay(t *testing.T) {
 	in <- 1
 
 	require.Equal(t, <-out, []int{1})
+}
+
+func TestBatchValuesAfterMaxDelay(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+
+	batchSize := 2
+	maxDelay := 5 * time.Millisecond
+	go func() {
+		in <- 1
+		time.Sleep(maxDelay + 2*time.Millisecond)
+		in <- 2
+		close(in)
+	}()
+
+	out := channels.BatchValues(in, batchSize, maxDelay)
+
+	require.Equal(t, [][]int{{1}, {2}}, out)
 }
 
 func TestBatchDrainsItemsOnInputChannelClose(t *testing.T) {
