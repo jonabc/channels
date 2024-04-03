@@ -151,3 +151,10 @@ func TapStatsProviderOption(provider providers.Provider[TapStats]) Option[TapCon
 		cfg.statsProvider = provider
 	}
 }
+
+// Specify the type of debouncing to a debouncer function - lead, tail, or both.
+func DebounceTypeOption(debounceType DebounceType) Option[DebounceConfig] {
+	return func(cfg *DebounceConfig) {
+		cfg.debounceType = debounceType
+	}
+}

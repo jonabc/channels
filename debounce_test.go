@@ -193,3 +193,127 @@ func TestDebounceProviderOptionWithStatsReporting(t *testing.T) {
 	require.GreaterOrEqual(t, stats[0].Delay, 2*time.Millisecond)
 	require.Equal(t, uint(1), stats[0].Count)
 }
+
+func TestDebounceLeadDebounceTypeOption(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	delay := 5 * time.Millisecond
+	out, getDebouncedCount := channels.Debounce(in, delay,
+		channels.DebounceTypeOption(channels.LeadDebounceType),
+	)
+
+	in <- 1
+	in <- 2
+	start := time.Now()
+	<-out
+	<-out
+	require.Less(t, time.Since(start), delay)
+	require.Equal(t, 2, getDebouncedCount())
+
+	in <- 1
+	in <- 2
+	select {
+	case <-out:
+		require.FailNow(t, "Unexpected value during debounce period")
+	case <-time.After(delay + 1*time.Millisecond):
+	}
+	require.Equal(t, 0, getDebouncedCount())
+
+	in <- 1
+	in <- 2
+	start = time.Now()
+	<-out
+	<-out
+	require.Less(t, time.Since(start), delay)
+	require.Equal(t, 2, getDebouncedCount())
+}
+
+func TestDebounceLeadTailDebounceTypeOption(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	delay := 5 * time.Millisecond
+	out, getDebouncedCount := channels.Debounce(in, delay,
+		channels.DebounceTypeOption(channels.LeadTailDebounceType),
+	)
+
+	in <- 1
+	in <- 2
+	start := time.Now()
+	<-out
+	<-out
+	require.Less(t, time.Since(start), delay)
+	require.Equal(t, 2, getDebouncedCount())
+
+	<-out
+	<-out
+	require.Greater(t, time.Since(start), delay)
+	require.Equal(t, 0, getDebouncedCount())
+}
+
+func TestDebounceCustomLeadDebounceTypeOption(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *customDebouncingType, 100)
+	defer close(in)
+
+	delay := 5 * time.Millisecond
+	out, getDebouncedCount := channels.DebounceCustom(in,
+		channels.DebounceTypeOption(channels.LeadDebounceType),
+	)
+
+	in <- &customDebouncingType{key: "1", value: "1", delay: delay}
+	in <- &customDebouncingType{key: "2", value: "2", delay: delay}
+	start := time.Now()
+	<-out
+	<-out
+	require.Less(t, time.Since(start), delay)
+	require.Equal(t, 2, getDebouncedCount())
+
+	in <- &customDebouncingType{key: "1", value: "1", delay: delay}
+	in <- &customDebouncingType{key: "2", value: "2", delay: delay}
+	select {
+	case <-out:
+		require.FailNow(t, "Unexpected value during throttling period")
+	case <-time.After(delay + 1*time.Millisecond):
+	}
+	require.Equal(t, 0, getDebouncedCount())
+
+	in <- &customDebouncingType{key: "1", value: "1", delay: delay}
+	in <- &customDebouncingType{key: "2", value: "2", delay: delay}
+	start = time.Now()
+	<-out
+	<-out
+	require.Less(t, time.Since(start), delay)
+	require.Equal(t, 2, getDebouncedCount())
+}
+
+func TestDebounceCustomLeadTailDebounceTypeOption(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan *customDebouncingType, 100)
+	defer close(in)
+
+	delay := 5 * time.Millisecond
+	out, getDebouncedCount := channels.DebounceCustom(in,
+		channels.DebounceTypeOption(channels.LeadTailDebounceType),
+	)
+
+	in <- &customDebouncingType{key: "1", value: "1", delay: delay}
+	in <- &customDebouncingType{key: "2", value: "2", delay: delay}
+	start := time.Now()
+	<-out
+	<-out
+	require.Less(t, time.Since(start), delay)
+	require.Equal(t, 2, getDebouncedCount())
+
+	<-out
+	<-out
+	require.Greater(t, time.Since(start), delay)
+	require.Equal(t, 0, getDebouncedCount())
+}
