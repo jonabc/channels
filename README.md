@@ -70,18 +70,18 @@ defer close(inc)
 delay := 5 * time.Second
 outc := Debounce(inc, delay)
 
+// writing to the input channel starts a debouncing period
 inc <- 1
-time.Sleep(1 * time.Second)
 
+// a debouncing period is active, both of these values are ignored
 inc <- 1
 inc <- 2
 
-// will block for approx `delay - 1s` time period
+// will block for approx `delay` time period
 results := <- outc
 
-// will block for approx 1 second
-results += <- outc
-// results == 3, len(outc) == 0
+// results == 1
+// any future writes to inc will start a new debouncing period
 ```
 
 Debounce reads values from the input channel and pushes them to the returned output channel before, after, or before and after a `delay` debounce period. The [DebounceType](#debounce-types) value used in the function controls when the value is pushed to the output channel.  Any duplicate values read from the input channel during the `delay` debounce period are ignored.
@@ -98,6 +98,40 @@ When debouncing values, the value can either be written to the output channel be
 
 The debounce type can be set using the `DebounceTypeOption` function option.
 
+
+### DebounceValues
+
+```go
+// signature
+func DebounceValues[T comparable](inc <-chan T, delay time.Duration) (<- chan T, func() int)
+
+// usage
+inc := make(chan int)
+defer close(inc)
+
+delay := 5 * time.Second
+outc := Debounce(inc, delay)
+
+// this write starts a debounce period for the value 1
+inc <- 1
+time.Sleep(1 * time.Second)
+
+// this write duplicates the previous value 1 written to inc
+// and is ignored
+inc <- 1
+
+// this write starts a debounce period for the value 2
+inc <- 2
+
+// will block for approx `delay - 1s` time period
+results := <- outc
+
+// will block for approx 1 second
+results += <- outc
+// results == 3, len(outc) == 0
+```
+
+DebounceValues is like [Debounce](#debounce) but with per-value debouncing, where each unique value read from the input channel will start a debouncing period for that value.  Any duplicate values read from the input channel during a debouncing period are ignored.
 
 ### DebounceCustom
 
@@ -164,16 +198,12 @@ result = <- outc
 // result == &myType{key: "3", val: 3, delay: delay}
 ```
 
-DebounceCustom is like Debounce but with per-item configurability over comparisons, delays, and reducing multiple values to a single debounced value.  Where Debounce requires `comparable` values in the input channel, DebounceCustom requires types that implement the `DebounceInput[K comparable, T Keyable[K]]` interface.  The typing is a little complex but in practice most of the complexity is hidden from callers.  Values of type `T` passsed into DebounceCustom must implement:
+DebounceCustom is like [Debounce](#debounce) but with per-item configurability over comparisons, delays, and reducing multiple values to a single debounced value.  Where Debounce requires `comparable` values in the input channel, DebounceCustom requires types that implement the `DebounceInput[K comparable, T Keyable[K]]` interface.  The typing is a little complex but in practice most of the complexity is hidden from callers.  Values of type `T` passsed into DebounceCustom must implement:
 1. `Key() K` returns a `comparable` value
    - The key is used to compare values read from the input channel for uniqueness.  If multiple values with the same key are seen, they will be reduced into a single value.
 2. `Delay() time.Duration` returns the debounce delay period for the value
    - This function is only called for the first value debounced for each unique key, i.e. if a value is read from the input channel with the same `Key()` as an existing delayed value, the delay from the previously seen value is maintained
 3. `Reduce(T) T` combines the value with another value.  As duplicate values are seen (as determined by comparisons of `Key()`), they will be continuously reduced to a single value which will be returned after the debounce period for that value has elapsed.
-
-The channel returned by DebounceCustom is unbuffered by default.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
-
-DebounceCustom also returns a function which returns the number of debounced values that are currently being delayed.
 
 ### Drain (Blocking)
 
@@ -560,7 +590,7 @@ for result := range outc {
 
 Tap reads values from the input channel and calls the provided `[pre/post]Fn` functions with each value before and after writing the value to the output channel, respectivel.  The output channel is unbuffered by default, and will be closed after the input channel is closed and drained.
 
-### Throttle
+### ThrottleValues
 
 ```go
 // signature
@@ -577,8 +607,9 @@ outc := Throttle(inc, delay)
 inc <- 1
 <-outc
 
-// write to inc is throttled and will not result in any writes to outc
+// all writes to inc during the throttling period will not result in any writes to outc
 inc <- 1
+inc <- 2
 
 // wait for throttle period to end
 time.Sleep(delay + 1*time.Millisecond)
@@ -588,11 +619,41 @@ inc <- 1
 <-outc
 ```
 
-Throttle is equivalent to [Debounce](#debounce) with `channels.LeadDebounceType`.  Throttle reads values from the input channel and pushes them to the returned output channel followed by a period of `delay` duration during which any matching values will be throttled and not pushed to the output channel.
+Throttle is equivalent to [Debounce](#debounce) with `channels.LeadDebounceType`.
 
-The channel returned by Throttle is unbuffered by default and will be closd when the input channel is drained and closed.
+### ThrottleValues
 
-Throttle also returns a function which returns the number of values that are currently being throttled
+```go
+// signature
+func ThrottleValues[T comparable](inc <-chan T, delay time.Duration) (<- chan T, func() int)
+
+// usage
+inc := make(chan int)
+defer close(inc)
+
+delay := 5 * time.Second
+outc := ThrottleValues(inc, delay)
+
+// writing to inc will result in a value published to outc immediately
+inc <- 1
+<-outc
+
+// duplicate write of 1 to inc is throttled and will not result in any writes to outc
+inc <- 1
+
+// writing a new value to inc will result in the value published to outc immediately
+inc <- 2
+<-outc
+
+// wait for throttle period to end
+time.Sleep(delay + 1*time.Millisecond)
+
+// writing to inc will result in a value published to outc immediately
+inc <- 1
+<-outc
+```
+
+ThrottleValues is equivalent to [DebounceValues](#debouncevalues) with `channels.LeadDebounceType`.
 
 ### ThrottleCustom
 
@@ -650,11 +711,7 @@ inc <- &myType{key:"1", val: 1, delay: delay}
 <-outc
 ```
 
-ThrottleCustom is equivalent to [DebounceCustom](#debouncecustom) with `channels.LeadDebounceType`.  ThrottleCustom is like Throttle but with per-item configurability over comparisons and delays. Where Throttle requires `comparable` values in the input channel, ThrottleCustom requires types that implement the `DebounceInput[K comparable, T Keyable[K]]` interface.
-
-The channel returned by ThrottleCustom is unbuffered by default and will be closd when the input channel is drained and closed.
-
-ThrottleCustom also returns a function which returns the number of values that are currently being throttled.
+ThrottleCustom is equivalent to [DebounceCustom](#debouncecustom) with `channels.LeadDebounceType`.
 
 ### WithDone
 

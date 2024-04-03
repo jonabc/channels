@@ -21,6 +21,38 @@ func TestThrottle(t *testing.T) {
 	in <- 2
 	start := time.Now()
 	<-out
+	require.Less(t, time.Since(start), delay)
+	require.Equal(t, 1, getThrottledCount())
+
+	in <- 1
+	select {
+	case <-out:
+		require.FailNow(t, "Unexpected value during throttling period")
+	case <-time.After(delay + 1*time.Millisecond):
+	}
+	require.Equal(t, 0, getThrottledCount())
+
+	in <- 1
+	in <- 2
+	start = time.Now()
+	<-out
+	require.Less(t, time.Since(start), delay)
+	require.Equal(t, 1, getThrottledCount())
+}
+
+func TestThrottleValues(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	delay := 5 * time.Millisecond
+	out, getThrottledCount := channels.ThrottleValues(in, delay)
+
+	in <- 1
+	in <- 2
+	start := time.Now()
+	<-out
 	<-out
 	require.Less(t, time.Since(start), delay)
 	require.Equal(t, 2, getThrottledCount())
