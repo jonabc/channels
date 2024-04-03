@@ -7,11 +7,26 @@ import (
 	"github.com/jonabc/channels/providers"
 )
 
+type DebounceType byte
+
+const (
+	TailDebounceType DebounceType = 1 << iota
+	LeadDebounceType
+	LeadTailDebounceType = TailDebounceType | LeadDebounceType
+)
+
 // DebounceConfig contains user configurable options for the Debounce functions
 type DebounceConfig struct {
 	panicProvider providers.Provider[any]
 	statsProvider providers.Provider[DebounceStats]
 	capacity      int
+	debounceType  DebounceType
+}
+
+func defaultDebounceOptions() []Option[DebounceConfig] {
+	return []Option[DebounceConfig]{
+		DebounceTypeOption(TailDebounceType),
+	}
 }
 
 type Keyable[K comparable] interface {
@@ -41,11 +56,11 @@ func (i *debounceInputComparable[T]) Reduce(*debounceInputComparable[T]) (*debou
 	return i, true
 }
 
-// Debounce reads values from the input channel and pushes them to the
-// returned output channel after a delay.  If a value is read from the
-// input channel multiple times during the debounce period it will only
-// be pushed to the output channel once, after a `delay` started from
-// when the first of the value multiple values is read.
+// Debounce reads values from the input channel and pushes them to the returned
+// output channel before, after, or before and after a `delay` debounce period.
+// The `DebounceType` value used in the function controls when the value is pushed
+// to the output channel.  Any duplicate values read from the input channel during
+// the `delay` debounce period are ignored.
 
 // The channel returned by Debounce is unbuffered by default.
 // When the input channel is closed, any remaining values being delayed/debounced
@@ -67,8 +82,7 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration, opts ...Option[De
 	}()
 
 	outBridge, getDebouncedCount := DebounceCustom(inBridge,
-		PanicProviderOption[DebounceConfig](cfg.panicProvider),
-		DebounceStatsProviderOption(cfg.statsProvider),
+		append(opts, ChannelCapacityOption[DebounceConfig](0))...,
 	)
 	go func() {
 		defer close(outc)
@@ -93,12 +107,13 @@ func Debounce[T comparable](inc <-chan T, delay time.Duration, opts ...Option[De
 // DebounceCustom also returns a function which returns the number of debounced values
 // that are currently being delayed
 func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T, opts ...Option[DebounceConfig]) (<-chan T, func() int) {
-	cfg := parseOpts(opts...)
+	cfg := parseOpts(append(defaultDebounceOptions(), opts...)...)
 
 	outc := make(chan T, cfg.capacity)
 	done := make(chan struct{})
 	panicProvider := cfg.panicProvider
 	statsProvider := cfg.statsProvider
+	debounceType := cfg.debounceType
 
 	// the buffer stores a map of key value pairs of
 	// items from the input channel currently being debounced
@@ -130,12 +145,17 @@ func DebounceCustom[K comparable, T DebounceInput[K, T]](inc <-chan T, opts ...O
 					}
 
 					duration := time.Since(start)
-
 					item, count := buffer.remove(key)
 
-					outc <- item
+					if debounceType&TailDebounceType == TailDebounceType {
+						outc <- item
+					}
 					tryProvideStats(DebounceStats{Delay: duration, Count: count}, statsProvider)
 				}(key, next.Delay())
+
+				if debounceType&LeadDebounceType == LeadDebounceType {
+					outc <- next
+				}
 			}
 		}
 

@@ -84,13 +84,20 @@ results += <- outc
 // results == 3, len(outc) == 0
 ```
 
-Debounce reads values from the input channel and pushes them to the returned output channel after a delay.  If a value is read from the input channel multiple times during the debounce period it will only be pushed to the output channel once, after a `delay` started from when the first of the value multiple values is read.
+Debounce reads values from the input channel and pushes them to the returned output channel before, after, or before and after a `delay` debounce period. The [DebounceType](#debounce-types) value used in the function controls when the value is pushed to the output channel.  Any duplicate values read from the input channel during the `delay` debounce period are ignored.
 
 The channel returned by Debounce is unbuffered by default.  When the input channel is closed, any remaining values being delayed/debounced will be flushed to the output channel and the output channel will be closed.
 
 Debounce also returns a function which returns the number of debounced values that are currently being delayed
 
-For more complicated use cases, see [DebounceCustom](./#debouncecustom) below
+For more complicated use cases, see [DebounceCustom](./#debouncecustom) below.
+
+#### Debounce Types
+
+When debouncing values, the value can either be written to the output channel before the debounce period starts (`LeadDebounceType`), after the debounce period ends (`TailDebounceType`) or both (`LeadTailDebounceType`).  The default is `TailDebounceType`.
+
+The debounce type can be set using the `DebounceTypeOption` function option.
+
 
 ### DebounceCustom
 
