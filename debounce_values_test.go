@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDebounce(t *testing.T) {
+func TestDebounceValues(t *testing.T) {
 	t.Parallel()
 
 	inc := make(chan int, 100)
 
 	delay := 20 * time.Millisecond
-	outc, getDebouncedCount := channels.Debounce(inc, delay)
+	outc, getDebouncedCount := channels.DebounceValues(inc, delay)
 	require.Equal(t, 0, cap(outc))
 
 	start := time.Now()
@@ -29,23 +29,34 @@ func TestDebounce(t *testing.T) {
 	inc <- 1
 
 	time.Sleep(2 * time.Millisecond)
-	require.Equal(t, 1, getDebouncedCount())
+	require.Equal(t, 2, getDebouncedCount())
 
 	// still waiting for debounce, out channel should be empty
 	require.Len(t, outc, 0)
 
-	require.Equal(t, 1, <-outc)
+	results := make([]int, 0)
+	results = append(results, <-outc)
+
+	require.ElementsMatch(t, results, []int{1})
 	require.GreaterOrEqual(t, time.Since(start), delay)
 
-	// sleep for an additional delay period and ensure that no other values
-	// have been written to outc
-	time.Sleep(delay)
-	require.Len(t, outc, 0)
+	results = append(results, <-outc)
+	require.ElementsMatch(t, results, []int{1, 2})
+	require.GreaterOrEqual(t, time.Since(start), delay+(2*time.Millisecond))
 
+	inc <- 1
+	inc <- 2
 	close(inc)
+
+	results = results[:0]
+	for result := range outc {
+		results = append(results, result)
+	}
+
+	require.ElementsMatch(t, results, []int{1, 2})
 }
 
-func TestDebounceAcceptsOptions(t *testing.T) {
+func TestDebounceValuesAcceptsOptions(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
@@ -54,7 +65,7 @@ func TestDebounceAcceptsOptions(t *testing.T) {
 	panicProvider, _ := providers.NewProvider[any](0)
 	defer panicProvider.Close()
 
-	out, _ := channels.Debounce(in, 2*time.Millisecond,
+	out, _ := channels.DebounceValues(in, 2*time.Millisecond,
 		channels.ChannelCapacityOption[channels.DebounceConfig](5),
 		channels.PanicProviderOption[channels.DebounceConfig](panicProvider),
 	)
@@ -62,7 +73,7 @@ func TestDebounceAcceptsOptions(t *testing.T) {
 	require.Equal(t, 5, cap(out))
 }
 
-func TestDebounceProviderOptionWithStatsReporting(t *testing.T) {
+func TestDebounceValuesProviderOptionWithStatsReporting(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
@@ -72,12 +83,12 @@ func TestDebounceProviderOptionWithStatsReporting(t *testing.T) {
 	defer provider.Close()
 
 	delay := 5 * time.Millisecond
-	out, _ := channels.Debounce(in, delay,
+	out, _ := channels.DebounceValues(in, delay,
 		channels.DebounceStatsProviderOption(provider),
 	)
 
 	in <- 1
-	in <- 2
+	in <- 1
 	<-out
 
 	stats, ok := <-receiver.Channel()
@@ -85,16 +96,25 @@ func TestDebounceProviderOptionWithStatsReporting(t *testing.T) {
 	require.Len(t, stats, 1)
 	require.Greater(t, stats[0].Delay, 5*time.Millisecond)
 	require.Equal(t, uint(2), stats[0].Count)
+
+	in <- 1
+	<-out
+
+	stats, ok = <-receiver.Channel()
+	require.True(t, ok)
+	require.Len(t, stats, 1)
+	require.GreaterOrEqual(t, stats[0].Delay, 2*time.Millisecond)
+	require.Equal(t, uint(1), stats[0].Count)
 }
 
-func TestDebounceLeadDebounceTypeOption(t *testing.T) {
+func TestDebounceValuesLeadDebounceTypeOption(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
 	defer close(in)
 
 	delay := 5 * time.Millisecond
-	out, getDebouncedCount := channels.Debounce(in, delay,
+	out, getDebouncedCount := channels.DebounceValues(in, delay,
 		channels.DebounceTypeOption(channels.LeadDebounceType),
 	)
 
@@ -102,10 +122,12 @@ func TestDebounceLeadDebounceTypeOption(t *testing.T) {
 	in <- 2
 	start := time.Now()
 	<-out
+	<-out
 	require.Less(t, time.Since(start), delay)
-	require.Equal(t, 1, getDebouncedCount())
+	require.Equal(t, 2, getDebouncedCount())
 
 	in <- 1
+	in <- 2
 	select {
 	case <-out:
 		require.FailNow(t, "Unexpected value during debounce period")
@@ -117,18 +139,19 @@ func TestDebounceLeadDebounceTypeOption(t *testing.T) {
 	in <- 2
 	start = time.Now()
 	<-out
+	<-out
 	require.Less(t, time.Since(start), delay)
-	require.Equal(t, 1, getDebouncedCount())
+	require.Equal(t, 2, getDebouncedCount())
 }
 
-func TestDebounceLeadTailDebounceTypeOption(t *testing.T) {
+func TestDebounceValuesLeadTailDebounceTypeOption(t *testing.T) {
 	t.Parallel()
 
 	in := make(chan int, 100)
 	defer close(in)
 
 	delay := 5 * time.Millisecond
-	out, getDebouncedCount := channels.Debounce(in, delay,
+	out, getDebouncedCount := channels.DebounceValues(in, delay,
 		channels.DebounceTypeOption(channels.LeadTailDebounceType),
 	)
 
@@ -136,9 +159,11 @@ func TestDebounceLeadTailDebounceTypeOption(t *testing.T) {
 	in <- 2
 	start := time.Now()
 	<-out
+	<-out
 	require.Less(t, time.Since(start), delay)
-	require.Equal(t, 1, getDebouncedCount())
+	require.Equal(t, 2, getDebouncedCount())
 
+	<-out
 	<-out
 	require.Greater(t, time.Since(start), delay)
 	require.Equal(t, 0, getDebouncedCount())
