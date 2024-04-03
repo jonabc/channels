@@ -560,6 +560,102 @@ for result := range outc {
 
 Tap reads values from the input channel and calls the provided `[pre/post]Fn` functions with each value before and after writing the value to the output channel, respectivel.  The output channel is unbuffered by default, and will be closed after the input channel is closed and drained.
 
+### Throttle
+
+```go
+// signature
+func Throttle[T comparable](inc <-chan T, delay time.Duration) (<- chan T, func() int)
+
+// usage
+inc := make(chan int)
+defer close(inc)
+
+delay := 5 * time.Second
+outc := Throttle(inc, delay)
+
+// writing to inc will result in a value published to outc immediately
+inc <- 1
+<-outc
+
+// write to inc is throttled and will not result in any writes to outc
+inc <- 1
+
+// wait for throttle period to end
+time.Sleep(delay + 1*time.Millisecond)
+
+// writing to inc will result in a value published to outc immediately
+inc <- 1
+<-outc
+```
+
+Throttle is equivalent to [Debounce](#debounce) with `channels.LeadDebounceType`.  Throttle reads values from the input channel and pushes them to the returned output channel followed by a period of `delay` duration during which any matching values will be throttled and not pushed to the output channel.
+
+The channel returned by Throttle is unbuffered by default and will be closd when the input channel is drained and closed.
+
+Throttle also returns a function which returns the number of values that are currently being throttled
+
+### ThrottleCustom
+
+```go
+// signature
+type Keyable[K comparable] interface {
+	Key() K
+}
+
+type DebounceInput[K comparable, T Keyable[K]] interface {
+	Keyable[K]
+	Delay() time.Duration
+	Reduce(T) (T, bool)
+}
+
+func ThrottleCustom[K comparable, T DebounceInput[K, T]](inc <-chan T) (<- chan T, func() int)
+
+// usage
+type myType struct {
+	key   string
+	value int
+	delay time.Duration
+}
+
+func (d *myType) Key() string {
+	return d.key
+}
+
+func (d *myType) Delay() time.Duration {
+	return d.delay
+}
+
+func (d *myType) Reduce(other *myType) (*myType, bool) {
+  return d, true
+}
+
+inc := make(chan *myType)
+defer close(inc)
+
+delay := 5 * time.Second
+outc := ThrottleCustom(inc)
+
+// writing to inc will result in a value published to outc immediately
+inc <- &myType{key:"1", val: 1, delay: delay}
+<-outc
+
+// write to inc is throttled and will not result in any writes to outc
+inc <- &myType{key:"1", val: 1, delay: delay}
+
+// wait for throttle period to end
+time.Sleep(delay + 1*time.Millisecond)
+
+// writing to inc will result in a value published to outc immediately
+inc <- &myType{key:"1", val: 1, delay: delay}
+<-outc
+```
+
+ThrottleCustom is equivalent to [DebounceCustom](#debouncecustom) with `channels.LeadDebounceType`.  ThrottleCustom is like Throttle but with per-item configurability over comparisons and delays. Where Throttle requires `comparable` values in the input channel, ThrottleCustom requires types that implement the `DebounceInput[K comparable, T Keyable[K]]` interface.
+
+The channel returned by ThrottleCustom is unbuffered by default and will be closd when the input channel is drained and closed.
+
+ThrottleCustom also returns a function which returns the number of values that are currently being throttled.
+
 ### WithDone
 
 ```go
