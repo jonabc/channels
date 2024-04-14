@@ -131,7 +131,7 @@ func TestDebounceValuesLeadDebounceTypeOption(t *testing.T) {
 	select {
 	case <-out:
 		require.FailNow(t, "Unexpected value during debounce period")
-	case <-time.After(delay + 1*time.Millisecond):
+	case <-time.After(delay + 2*time.Millisecond):
 	}
 	require.Equal(t, 0, getDebouncedCount())
 
