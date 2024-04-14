@@ -222,7 +222,26 @@ count, drained := channels.Drain(inc, 10 * time.Millisecond)
 // count == 3, drained == true
 ```
 
-Drain blocks until either the input channel is fully drained and closed or `maxWait` duration has passed.  Drain returns true when exiting due to the input channel being drained and closed, false when exiting due to waiting for the `maxWait` duration.  When `maxWait <= 0`, Drain will wait forever, and only exit when the input channel is closed.
+Drain blocks until either the input channel is fully drained and closed or `maxWait` duration has passed.  Drain returns the count of values drained from the channel, and a bool that is true when exiting due to the input channel being drained and closed or false when exiting due to waiting for the `maxWait` duration.  When `maxWait <= 0`, Drain will wait forever, and only exit when the input channel is closed.
+
+### DrainValues (Blocking)
+
+```go
+// signature
+func DrainValues[T any](inc <-chan TIn, maxWait time.Duration) ([]TIn, bool)
+
+// usage
+inc := make(chan int)
+inc <- 1
+inc <- 2
+inc <- 3
+close(inc)
+
+values, drained := channels.Drain(inc, 10 * time.Millisecond)
+// valued == []int{1,2,3}, drained == true
+```
+
+DrainValues blocks until either the input channel is fully drained and closed or `maxWait` duration has passed.  DrainValues returns the values drained from the channel, and a bool that is true when exiting due to the input channel being drained and closed or false when exiting due to waiting for the `maxWait` duration.  When `maxWait <= 0`, Drain will wait forever, and only exit when the input channel is closed.
 
 ### FlatMap
 
