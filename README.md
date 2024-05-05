@@ -732,6 +732,24 @@ inc <- &myType{key:"1", val: 1, delay: delay}
 
 ThrottleCustom is equivalent to [DebounceCustom](#debouncecustom) with `channels.LeadDebounceType`.
 
+### Void
+
+```go
+// signature
+Void[T any](inc <-chan T)
+
+// usage
+inc := make(chan int, 2)
+channels.Void(inc)
+
+inc <- 1
+inc <- 2
+
+// and they're gone
+```
+
+Void consumes a channel with no other action taken.  This function can be useful for tests or while iteratively composing a channel pipeline before the final consumption of channel events is completed.
+
 ### WithDone
 
 ```go
