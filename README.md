@@ -243,6 +243,31 @@ values, drained := channels.Drain(inc, 10 * time.Millisecond)
 
 DrainValues blocks until either the input channel is fully drained and closed or `maxWait` duration has passed.  DrainValues returns the values drained from the channel, and a bool that is true when exiting due to the input channel being drained and closed or false when exiting due to waiting for the `maxWait` duration.  When `maxWait <= 0`, Drain will wait forever, and only exit when the input channel is closed.
 
+### Each
+
+```go
+// signature
+func Each[TIn any](inc <-chan TIn, eachFn func(TIn))
+
+// usage
+inc := make(chan int)
+// map integers to a boolean indicating if the values are odd (false) or even (true)
+outc := Each(inc, func(i int) (bool, bool) { return i%2 == 0, i < 3 })
+
+inc <- 1
+inc <- 2
+inc <- 3
+close(inc)
+
+results := []int{}
+for result := range outc {
+  result = append(results, result)
+}
+// results == []bool{false, true}
+```
+
+Each consumes values from the input channel and applies the provided `eachFn` to each value.  Values are not propagated to an output channel, consider using [Tap](#tap) or [Map](#map) for channel propagation.
+
 ### FlatMap
 
 ```go
