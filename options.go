@@ -7,6 +7,7 @@ import (
 type channelConfiguration interface {
 	BatchConfig |
 		DebounceConfig |
+		EachConfig |
 		FlatMapConfig |
 		MapConfig |
 		MergeConfig |
@@ -24,6 +25,8 @@ func PanicProviderOption[T channelConfiguration](provider providers.Provider[any
 		case *BatchConfig:
 			cfg.panicProvider = provider
 		case *DebounceConfig:
+			cfg.panicProvider = provider
+		case *EachConfig:
 			cfg.panicProvider = provider
 		case *FlatMapConfig:
 			cfg.panicProvider = provider
@@ -102,7 +105,8 @@ func parseOpts[C any, O ~func(*C)](opts ...O) *C {
 }
 
 type statsConfiguration interface {
-	FlatMapConfig |
+	EachConfig |
+		FlatMapConfig |
 		MapConfig |
 		ReduceConfig |
 		SplitConfig
@@ -112,6 +116,8 @@ type statsConfiguration interface {
 func StatsProviderOption[T statsConfiguration](provider providers.Provider[Stats]) Option[T] {
 	return func(cfg *T) {
 		switch cfg := any(cfg).(type) {
+		case *EachConfig:
+			cfg.statsProvider = provider
 		case *FlatMapConfig:
 			cfg.statsProvider = provider
 		case *MapConfig:
