@@ -40,7 +40,7 @@ func Reduce[TIn any, TOut any](inc <-chan TIn, reduceFn func(TOut, TIn) (TOut, b
 				outc <- result
 			}
 
-			tryProvideStats(Stats{Duration: duration}, statsProvider)
+			tryProvideStats(Stats{Duration: duration, QueueLength: len(inc)}, statsProvider)
 		}
 	}()
 

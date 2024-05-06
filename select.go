@@ -35,7 +35,7 @@ func Select[T any](inc <-chan T, selectFn func(T) bool, opts ...Option[SelectCon
 				outc <- in
 			}
 
-			tryProvideStats(SelectStats{Duration: duration, Selected: selected}, statsProvider)
+			tryProvideStats(SelectStats{Duration: duration, Selected: selected, QueueLength: len(inc)}, statsProvider)
 		}
 	}()
 

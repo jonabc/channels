@@ -101,6 +101,8 @@ func TestSelectProviderOptionWithReportStats(t *testing.T) {
 
 	require.GreaterOrEqual(t, stats[0].Duration, 2*time.Millisecond)
 	require.False(t, stats[0].Selected)
+	require.Equal(t, 1, stats[0].QueueLength)
 	require.GreaterOrEqual(t, stats[1].Duration, 2*time.Millisecond)
 	require.True(t, stats[1].Selected)
+	require.Equal(t, 0, stats[1].QueueLength)
 }

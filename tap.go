@@ -43,7 +43,7 @@ func Tap[T any](inc <-chan T, preFn, postFn func(T), opts ...Option[TapConfig]) 
 			}
 			postDuration := time.Since(start)
 
-			tryProvideStats(TapStats{PreDuration: preDuration, PostDuration: postDuration}, statsProvider)
+			tryProvideStats(TapStats{PreDuration: preDuration, PostDuration: postDuration, QueueLength: len(inc)}, statsProvider)
 		}
 	}()
 

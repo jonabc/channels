@@ -89,6 +89,8 @@ func TestTapProviderOptionWithReportStats(t *testing.T) {
 	)
 
 	in <- 1
+	in <- 2
+	<-out
 	<-out
 
 	stats, ok := <-receiver.Channel()
@@ -96,4 +98,5 @@ func TestTapProviderOptionWithReportStats(t *testing.T) {
 	require.Len(t, stats, 1)
 	require.GreaterOrEqual(t, stats[0].PreDuration, 2*time.Millisecond)
 	require.GreaterOrEqual(t, stats[0].PostDuration, 4*time.Millisecond)
+	require.Equal(t, 1, stats[0].QueueLength)
 }

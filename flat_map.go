@@ -40,7 +40,7 @@ func FlatMap[TIn any, TOut any, TOutSlice []TOut](inc <-chan TIn, mapFn func(TIn
 				}
 			}
 
-			tryProvideStats(Stats{Duration: duration}, statsProvider)
+			tryProvideStats(Stats{Duration: duration, QueueLength: len(inc)}, statsProvider)
 		}
 	}()
 

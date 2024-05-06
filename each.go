@@ -25,7 +25,7 @@ func Each[T any](inc <-chan T, eachFn func(T), opts ...Option[EachConfig]) {
 			eachFn(in)
 			duration := time.Since(start)
 
-			tryProvideStats(Stats{Duration: duration}, statsProvider)
+			tryProvideStats(Stats{Duration: duration, QueueLength: len(inc)}, statsProvider)
 		}
 	}()
 }

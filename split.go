@@ -57,7 +57,7 @@ func Split[T any](inc <-chan T, count int, splitFn func(T, []chan<- T), opts ...
 			start := time.Now()
 			splitFn(in, writeOutc)
 			duration := time.Since(start)
-			tryProvideStats(Stats{Duration: duration}, statsProvider)
+			tryProvideStats(Stats{Duration: duration, QueueLength: len(inc)}, statsProvider)
 		}
 	}()
 

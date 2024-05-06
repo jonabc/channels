@@ -101,10 +101,13 @@ func TestFlatMapProviderOptionWithReportStats(t *testing.T) {
 	)
 
 	in <- 1
+	in <- 2
+	<-out
 	<-out
 
 	stats, ok := <-receiver.Channel()
 	require.True(t, ok)
-	require.Len(t, stats, 1)
+	require.Len(t, stats, 2)
 	require.GreaterOrEqual(t, stats[0].Duration, 2*time.Millisecond)
+	require.Equal(t, stats[0].QueueLength, 1)
 }
