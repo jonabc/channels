@@ -36,7 +36,7 @@ func Map[TIn any, TOut any](inc <-chan TIn, mapFn func(TIn) (TOut, bool), opts .
 				outc <- val
 			}
 
-			tryProvideStats(Stats{Duration: duration}, statsProvider)
+			tryProvideStats(Stats{Duration: duration, QueueLength: len(inc)}, statsProvider)
 		}
 	}()
 

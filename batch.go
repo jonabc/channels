@@ -45,7 +45,7 @@ func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration, opts ...O
 		copy(keys, buffer)
 		outc <- keys
 		buffer = buffer[:0]
-		tryProvideStats(BatchStats{Duration: duration, BatchSize: uint(batchSize)}, statsProvider)
+		tryProvideStats(BatchStats{Duration: duration, BatchSize: uint(batchSize), QueueLength: len(inc)}, statsProvider)
 	}
 
 	go func() {

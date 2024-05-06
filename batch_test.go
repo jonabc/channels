@@ -158,6 +158,7 @@ func TestBatchProviderOptionWithStatsReporting(t *testing.T) {
 
 	in <- 1
 	in <- 2
+	in <- 1
 	<-out
 
 	stats, ok := <-receiver.Channel()
@@ -165,8 +166,8 @@ func TestBatchProviderOptionWithStatsReporting(t *testing.T) {
 	require.Len(t, stats, 1)
 	require.Greater(t, stats[0].Duration, time.Duration(0))
 	require.Equal(t, uint(2), stats[0].BatchSize)
+	require.Equal(t, 1, stats[0].QueueLength)
 
-	in <- 1
 	<-out
 
 	stats, ok = <-receiver.Channel()
@@ -174,4 +175,5 @@ func TestBatchProviderOptionWithStatsReporting(t *testing.T) {
 	require.Len(t, stats, 1)
 	require.Greater(t, stats[0].Duration, 2*time.Millisecond)
 	require.Equal(t, uint(1), stats[0].BatchSize)
+	require.Equal(t, 0, stats[0].QueueLength)
 }

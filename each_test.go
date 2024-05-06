@@ -68,9 +68,11 @@ func TestEachProviderOptionWithReportStats(t *testing.T) {
 	)
 
 	in <- 1
+	in <- 2
 
 	stats, ok := <-receiver.Channel()
 	require.True(t, ok)
-	require.Len(t, stats, 1)
+	require.GreaterOrEqual(t, len(stats), 1)
 	require.GreaterOrEqual(t, stats[0].Duration, 2*time.Millisecond)
+	require.Equal(t, 1, stats[0].QueueLength)
 }

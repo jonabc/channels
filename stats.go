@@ -8,32 +8,37 @@ import (
 
 // Stats provides an operation duration.
 type Stats struct {
-	Duration time.Duration
+	Duration    time.Duration
+	QueueLength int
 }
 
 // BatchStats provides a batch operation's duration and batch size.
 type BatchStats struct {
-	Duration  time.Duration
-	BatchSize uint
+	Duration    time.Duration
+	BatchSize   uint
+	QueueLength int
 }
 
 // DebounceStats provides a debounce operation's delay and debounced count.
 type DebounceStats struct {
-	Delay time.Duration
-	Count uint
+	Delay       time.Duration
+	Count       uint
+	QueueLength int
 }
 
 // SelectStats provides a select or reject operation's duration and
 // whether the item was selected or not.
 type SelectStats struct {
-	Duration time.Duration
-	Selected bool
+	Duration    time.Duration
+	Selected    bool
+	QueueLength int
 }
 
 // TapStats provides the duration of a tap operations pre and post functions.
 type TapStats struct {
 	PreDuration  time.Duration
 	PostDuration time.Duration
+	QueueLength  int
 }
 
 type statsProviderInput interface {
