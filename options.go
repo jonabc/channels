@@ -13,6 +13,7 @@ type channelConfiguration interface {
 		MergeConfig |
 		ReduceConfig |
 		SelectConfig |
+		SignalConfig |
 		SplitConfig |
 		TapConfig
 }
@@ -54,6 +55,7 @@ type singleOutputConfiguration interface {
 		MergeConfig |
 		ReduceConfig |
 		SelectConfig |
+		SignalConfig |
 		TapConfig
 }
 
@@ -72,6 +74,8 @@ func ChannelCapacityOption[T singleOutputConfiguration](capacity int) Option[T] 
 		case *MergeConfig:
 			cfg.capacity = capacity
 		case *ReduceConfig:
+			cfg.capacity = capacity
+		case *SignalConfig:
 			cfg.capacity = capacity
 		case *SelectConfig:
 			cfg.capacity = capacity
