@@ -40,3 +40,16 @@ func TestWithDone(t *testing.T) {
 	require.Equal(t, []int{1, 2}, results)
 	require.Nil(t, done)
 }
+
+func TestWithDoneChannelCapacityOption(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan int, 100)
+	defer close(in)
+
+	out, _ := channels.WithDone(in,
+		channels.ChannelCapacityOption[channels.SignalConfig](5),
+	)
+
+	require.Equal(t, 5, cap(out))
+}
