@@ -1,6 +1,7 @@
 package channels_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -28,6 +29,32 @@ func TestFlatMap(t *testing.T) {
 	require.Equal(t, <-out, 11)
 	require.Equal(t, <-out, 20)
 	require.Equal(t, <-out, 21)
+
+	_, ok := <-out
+	require.False(t, ok)
+}
+
+func TestFlatMapInputArray(t *testing.T) {
+	t.Parallel()
+
+	in := make(chan []int, 100)
+
+	out := channels.FlatMap(in, func(vals []int) ([]string, bool) {
+		result := make([]string, len(vals))
+		for i, val := range vals {
+			result[i] = strconv.Itoa(val)
+		}
+
+		return result, true
+	})
+	require.Equal(t, 0, cap(out))
+
+	in <- []int{1, 2, 3}
+	close(in)
+
+	require.Equal(t, <-out, "1")
+	require.Equal(t, <-out, "2")
+	require.Equal(t, <-out, "3")
 
 	_, ok := <-out
 	require.False(t, ok)
