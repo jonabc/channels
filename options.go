@@ -7,6 +7,7 @@ import (
 type channelConfiguration interface {
 	BatchConfig |
 		DebounceConfig |
+		DelayConfig |
 		EachConfig |
 		FlatMapConfig |
 		MapConfig |
@@ -26,6 +27,8 @@ func PanicProviderOption[T channelConfiguration](provider providers.Provider[any
 		case *BatchConfig:
 			cfg.panicProvider = provider
 		case *DebounceConfig:
+			cfg.panicProvider = provider
+		case *DelayConfig:
 			cfg.panicProvider = provider
 		case *EachConfig:
 			cfg.panicProvider = provider
@@ -50,6 +53,7 @@ func PanicProviderOption[T channelConfiguration](provider providers.Provider[any
 type singleOutputConfiguration interface {
 	BatchConfig |
 		DebounceConfig |
+		DelayConfig |
 		FlatMapConfig |
 		MapConfig |
 		MergeConfig |
@@ -66,6 +70,8 @@ func ChannelCapacityOption[T singleOutputConfiguration](capacity int) Option[T] 
 		case *BatchConfig:
 			cfg.capacity = capacity
 		case *DebounceConfig:
+			cfg.capacity = capacity
+		case *DelayConfig:
 			cfg.capacity = capacity
 		case *FlatMapConfig:
 			cfg.capacity = capacity
@@ -109,7 +115,8 @@ func parseOpts[C any, O ~func(*C)](opts ...O) *C {
 }
 
 type statsConfiguration interface {
-	EachConfig |
+	DelayConfig |
+		EachConfig |
 		FlatMapConfig |
 		MapConfig |
 		ReduceConfig |
@@ -120,6 +127,8 @@ type statsConfiguration interface {
 func StatsProviderOption[T statsConfiguration](provider providers.Provider[Stats]) Option[T] {
 	return func(cfg *T) {
 		switch cfg := any(cfg).(type) {
+		case *DelayConfig:
+			cfg.statsProvider = provider
 		case *EachConfig:
 			cfg.statsProvider = provider
 		case *FlatMapConfig:

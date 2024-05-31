@@ -35,7 +35,7 @@ type Keyable[K comparable] interface {
 
 type DebounceInput[K comparable, T Keyable[K]] interface {
 	Keyable[K]
-	Delay() time.Duration
+	Delayable
 	Reduce(T) (T, bool)
 }
 

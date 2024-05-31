@@ -143,7 +143,7 @@ type Keyable[K comparable] interface {
 
 type DebounceInput[K comparable, T Keyable[K]] interface {
 	Keyable[K]
-	Delay() time.Duration
+	Delayable
 	Reduce(T) (T, bool)
 }
 
@@ -204,6 +204,70 @@ DebounceCustom is like [Debounce](#debounce) but with per-item configurability o
 2. `Delay() time.Duration` returns the debounce delay period for the value
    - This function is only called for the first value debounced for each unique key, i.e. if a value is read from the input channel with the same `Key()` as an existing delayed value, the delay from the previously seen value is maintained
 3. `Reduce(T) T` combines the value with another value.  As duplicate values are seen (as determined by comparisons of `Key()`), they will be continuously reduced to a single value which will be returned after the debounce period for that value has elapsed.
+
+### Delay
+
+```go
+// signature
+func Delay[T any](inc <-chan T, delay time.Duration) (<- chan T, func() int)
+
+// usage
+inc := make(chan int)
+defer close(inc)
+
+delay := 5 * time.Second
+outc := Delay(inc, delay)
+
+// writing to the input channel starts a delay period
+inc <- 1
+
+// will block for approx `delay` time period
+results := <- outc
+
+// results == 1
+```
+
+Delay reads values from the input channel, and writes each value to the output channel after `delay` duration.
+
+The channel returned by Delay is unbuffered by default.  When the input channel is closed, any remaining values being delayed will be flushed to the output channel and the output channel will be closed.
+
+Delay also returns a function which returns the number of values that are currently being delayed.
+
+For more complicated use cases, see [DelayCustom](./#delaycustom) below.
+
+### DelayCustom
+
+```go
+// signature
+type Delayable interface {
+	Delay() time.Duration
+}
+
+func DelayCustom[T Delayable](inc <-chan T) (<- chan T, func() int)
+
+// usage
+type myType struct {
+	delay time.Duration
+}
+
+func (d *myType) Delay() time.Duration {
+	return d.delay
+}
+
+inc := make(chan *myType)
+defer close(inc)
+
+delay := 5 * time.Second
+outc := DelayCustom(inc)
+
+inc <- &myType{delay: delay}
+
+// will block for approx `delay` time period
+result := <- outc
+// result == &myType{delay: delay}
+```
+
+DelayCustom is like [Delay](#delay) but with per-item configurability over delays.  DelayCustom requires types that implement the `Delayable` interface.
 
 ### Drain (Blocking)
 
