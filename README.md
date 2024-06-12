@@ -757,6 +757,89 @@ inc <- &myType{key:"1", val: 1, delay: delay}
 
 ThrottleCustom is equivalent to [DebounceCustom](#debouncecustom) with `channels.LeadDebounceType`.
 
+### Unique
+
+```go
+// signature
+func Unique[T comparable](inc <-chan T, batchSize int, maxDelay time.Duration) <- chan T
+
+// usage
+inc := make(chan int)
+defer close(inc)
+
+outc := Unique(inc, 2, 0)
+
+inc <- 1
+inc <- 1
+inc <- 2
+
+results := <- outc
+// results == []int{1,2}
+```
+
+Batch unique values from the input channel into an array of values written to the output channel.
+
+The output channel is unbuffered by default, and will be closed when the input channel is closed and drained.  If a partial batch exists when the input channel is closed, the partial batch will be sent to the output channel.
+
+### UniqueKeyed
+
+```go
+// signature
+type Keyable[K comparable] interface {
+	Key() K
+}
+
+func UniqueKeyed[K comparable, V Keyable[K]](inc <-chan V, batchSize int, maxDelay time.Duration) <-chan []V
+
+// usage
+type myType struct {
+	key   string
+  value int
+}
+
+func (d *myType) Key() string {
+	return d.key
+}
+
+inc := make(chan *myType)
+defer close(inc)
+
+outc := UniqueKeyed(inc, 2, 0)
+
+inc <- &myType{key:"1", val: 1}
+inc <- &myType{key:"1", val: 1}
+inc <- &myType{key:"2", val: 2}
+
+result := <- outc
+// result == []*myType{&myType{key:"1", val: 1}, &myType{key:"2", val: 2}}
+```
+
+Batch unique values from the input channel into an array of values written to the output channel.  Uniqueness is determed by the value returned by each value's Key() function.
+
+The output channel is unbuffered by default, and will be closed when the input channel is closed and drained.  If a partial batch exists when the input channel is closed, the partial batch will be sent to the output channel.
+
+### UniqueValues
+
+```go
+// signature
+func UniqueValues[T any](inc <-chan T, batchSize int, maxDelay time.Duration) [][]T
+
+// usage
+inc := make(chan int, 4)
+inc <- 1
+inc <- 1
+inc <- 2
+inc <- 3
+inc <- 3
+inc <- 4
+close(inc)
+
+results := UniqueValues(inc, 2, 0)
+// results == [][]int{{1,2}, {3,4}}
+```
+
+Like Unique, but blocks until the input channel is closed and all values are read.  UniqueValues reads all values from the input channel and returns an array of batches.
+
 ### Void
 
 ```go
