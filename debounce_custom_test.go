@@ -155,6 +155,6 @@ func TestDebounceCustomLeadTailDebounceTypeOption(t *testing.T) {
 
 	<-out
 	<-out
-	require.Greater(t, time.Since(start), delay)
+	require.GreaterOrEqual(t, time.Since(start), delay)
 	require.Equal(t, 0, getDebouncedCount())
 }

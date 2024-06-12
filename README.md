@@ -21,11 +21,11 @@ Providers and receivers wrap channels to provide a few quality of life benefits.
 
 ```go
 // signature
-func Batch[T any](inc <-chan T, batchSize int) <- chan T
+func Batch[T any](inc <-chan T, batchSize int, maxDelay time.Duration) <- chan T
 
 // usage
 inc := make(chan int)
-outc := Batch(inc, 2)
+outc := Batch(inc, 2, 0)
 
 inc <- 1
 inc <- 2
@@ -41,7 +41,7 @@ Batch N values from the input channel into an array of N values in the output ch
 
 ```go
 // signature
-func BatchValues[T any](inc <-chan T, batchSize int) [][]T
+func BatchValues[T any](inc <-chan T, batchSize int, maxDelay time.Duration) [][]T
 
 // usage
 inc := make(chan int, 4)
@@ -51,7 +51,7 @@ inc <- 3
 inc <- 4
 close(inc)
 
-results := BatchValues(inc, 2)
+results := BatchValues(inc, 2, 0)
 // results == [][]int{{1,2}, {3,4}}
 ```
 

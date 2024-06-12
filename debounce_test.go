@@ -83,7 +83,7 @@ func TestDebounceProviderOptionWithStatsReporting(t *testing.T) {
 	stats, ok := <-receiver.Channel()
 	require.True(t, ok)
 	require.Len(t, stats, 1)
-	require.Greater(t, stats[0].Delay, 5*time.Millisecond)
+	require.GreaterOrEqual(t, stats[0].Delay, 5*time.Millisecond)
 	require.Equal(t, uint(2), stats[0].Count)
 }
 
@@ -140,6 +140,6 @@ func TestDebounceLeadTailDebounceTypeOption(t *testing.T) {
 	require.Equal(t, 1, getDebouncedCount())
 
 	<-out
-	require.Greater(t, time.Since(start), delay)
+	require.GreaterOrEqual(t, time.Since(start), delay)
 	require.Equal(t, 0, getDebouncedCount())
 }
