@@ -21,6 +21,6 @@ func TestVoid(t *testing.T) {
 
 	// Void starts a goroutine, sleep for a small period of time here
 	// to ensure that the goroutine has time to consume the channel
-	time.Sleep(100 * time.Microsecond)
+	time.Sleep(1 * time.Millisecond)
 	require.Len(t, in, 0)
 }
